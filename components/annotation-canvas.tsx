@@ -33,7 +33,7 @@ export function AnnotationCanvas({
     >
       {plans.map((plan) => {
         const selected = selectedAnnotationId === plan.id
-        const stroke = selected ? "#b91c1c" : "#dc2626"
+        const stroke = selected ? "var(--rp-correction-strong)" : "var(--rp-correction)"
         const strokeWidth = selected ? 5 : 3
 
         return (

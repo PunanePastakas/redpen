@@ -1,4 +1,5 @@
 import { AlertTriangle, CheckCircle2, Clock3, Loader2 } from "lucide-react"
+import { StatusBadge } from "@/components/ui/status-badge"
 
 type StatusPillProps = {
   status:
@@ -28,14 +29,14 @@ const labels: Record<StatusPillProps["status"], string> = {
 }
 
 export function StatusPill({ status }: StatusPillProps) {
-  const color =
+  const tone =
     status === "error"
-      ? "border-red-200 bg-red-50 text-red-700"
+      ? "danger"
       : status === "confirmed" || status === "shared" || status === "reviewed"
-        ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+        ? "success"
         : status === "drafted" || status === "needs_review" || status === "transcribing" || status === "mapped"
-          ? "border-amber-200 bg-amber-50 text-amber-800"
-          : "border-slate-200 bg-slate-50 text-slate-700"
+          ? "warning"
+          : "neutral"
 
   const Icon =
     status === "error"
@@ -43,13 +44,12 @@ export function StatusPill({ status }: StatusPillProps) {
       : status === "confirmed" || status === "shared" || status === "reviewed"
         ? CheckCircle2
         : status === "drafted" || status === "transcribing" || status === "mapped"
-          ? Loader2
-          : Clock3
+        ? Loader2
+        : Clock3
 
   return (
-    <span className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs font-semibold ${color}`}>
-      <Icon aria-hidden="true" size={13} />
+    <StatusBadge tone={tone} icon={<Icon aria-hidden="true" className={Icon === Loader2 ? "animate-spin" : undefined} size={13} />}>
       {labels[status]}
-    </span>
+    </StatusBadge>
   )
 }

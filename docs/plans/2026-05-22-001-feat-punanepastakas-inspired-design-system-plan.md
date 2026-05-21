@@ -1,7 +1,7 @@
 ---
 title: "feat: Create PunanePastakas-Inspired Design System"
 type: feat
-status: active
+status: completed
 date: 2026-05-22
 ---
 
@@ -272,10 +272,10 @@ Add `docs/design-system/redpen-design-system.md` containing:
 
 Acceptance:
 
-- [ ] Token names cover paper, ink, surface, muted text, border, warm olive action, correction red, brass warning, success, danger, radii, shadows, and focus rings.
-- [ ] Body background can support a subtle paper grid without hurting setup/auth/empty states.
-- [ ] Design-system doc explains that RedPen uses warm olive primary actions and red for correction/error.
-- [ ] No Convex, AI, schema, or workflow behavior changes are included.
+- [x] Token names cover paper, ink, surface, muted text, border, warm olive action, correction red, brass warning, success, danger, radii, shadows, and focus rings.
+- [x] Body background can support a subtle paper grid without hurting setup/auth/empty states.
+- [x] Design-system doc explains that RedPen uses warm olive primary actions and red for correction/error.
+- [x] No Convex, AI, schema, or workflow behavior changes are included.
 
 ### Phase 2: Primitive Components
 
@@ -286,10 +286,10 @@ Acceptance:
 
 Acceptance:
 
-- [ ] Button variants have consistent disabled/loading/focus styles.
-- [ ] Icon-only controls require accessible labels at call sites.
-- [ ] Panel, notice, badge, field, and modal primitives cover existing RedPen states.
-- [ ] Primitives do not import Convex APIs or domain-specific workflow code.
+- [x] Button variants have consistent disabled/loading/focus styles.
+- [x] Icon-only controls require accessible labels at call sites.
+- [x] Panel, notice, badge, field, and modal primitives cover existing RedPen states.
+- [x] Primitives do not import Convex APIs or domain-specific workflow code.
 
 ### Phase 3: Workbench Surface Migration
 
@@ -300,11 +300,11 @@ Acceptance:
 
 Acceptance:
 
-- [ ] Authenticated no-tests state still renders without synthetic tests/students/works.
-- [ ] The three-zone workbench remains intact.
-- [ ] Create/edit test, upload guide, upload work, remove/restore work, run analysis, review drafts, confirm result, share, and mock export flows keep their current behavior.
-- [ ] Visual treatment now uses paper grid, ink borders, restrained hard shadows, warm olive actions, correction red, and brass warning states.
-- [ ] No cards are nested inside decorative cards.
+- [x] Authenticated no-tests state still renders without synthetic tests/students/works.
+- [x] The three-zone workbench remains intact.
+- [x] Create/edit test, upload guide, upload work, remove/restore work, run analysis, review drafts, confirm result, share, and mock export flows keep their current behavior.
+- [x] Visual treatment now uses paper grid, ink borders, restrained hard shadows, warm olive actions, correction red, and brass warning states.
+- [x] No cards are nested inside decorative cards.
 
 ### Phase 4: Document, Annotation, And AI Review Polish
 
@@ -316,10 +316,10 @@ Acceptance:
 
 Acceptance:
 
-- [ ] Image/PDF/text preview states fit the new visual system and remain usable at desktop and narrow widths.
-- [ ] Annotation targets render with correction-red affordance and selected-state emphasis.
-- [ ] AI-generated content remains clearly marked as teacher-reviewable draft content.
-- [ ] Invalid or missing preview files use design-system error/empty states.
+- [x] Image/PDF/text preview states fit the new visual system and remain usable at desktop and narrow widths.
+- [x] Annotation targets render with correction-red affordance and selected-state emphasis.
+- [x] AI-generated content remains clearly marked as teacher-reviewable draft content.
+- [x] Invalid or missing preview files use design-system error/empty states.
 
 ### Phase 5: Student-Facing And Accessibility Pass
 
@@ -330,10 +330,10 @@ Acceptance:
 
 Acceptance:
 
-- [ ] Student result page uses RedPen identity without exposing drafts or hidden teacher context.
-- [ ] Focus rings are visible against paper, white, red, warm olive, and brass surfaces.
-- [ ] Long Estonian and English text does not overflow buttons, status badges, panels, or mobile layouts.
-- [ ] Reduced viewport widths remain readable with wrapping toolbars and stable controls.
+- [x] Student result page uses RedPen identity without exposing drafts or hidden teacher context.
+- [x] Focus rings are visible against paper, white, red, warm olive, and brass surfaces.
+- [x] Long Estonian and English text does not overflow buttons, status badges, panels, or mobile layouts.
+- [x] Reduced viewport widths remain readable with wrapping toolbars and stable controls.
 
 ## Alternative Approaches Considered
 
@@ -397,29 +397,29 @@ Deferred. Storybook or a component gallery could be useful later, but the MVP ne
 
 ### Functional Requirements
 
-- [ ] A documented RedPen design system exists in `docs/design-system/redpen-design-system.md`.
-- [ ] `app/globals.css` exposes stable RedPen design tokens inspired by PunanePastakas and compatible with existing RedPen palette requirements.
-- [ ] Shared UI primitives exist under `components/ui/` and cover buttons, icon buttons, panels, notices, badges, fields, modals, empty states, upload/dropzone, toolbar, and progress/status patterns.
-- [ ] Core teacher workbench surfaces use the primitives instead of repeating local hex-heavy class strings.
-- [ ] Student result view uses the design system without exposing teacher-only workflow density.
-- [ ] The design system preserves empty-first runtime behavior and all teacher-confirmation boundaries.
+- [x] A documented RedPen design system exists in `docs/design-system/redpen-design-system.md`.
+- [x] `app/globals.css` exposes stable RedPen design tokens inspired by PunanePastakas and compatible with existing RedPen palette requirements.
+- [x] Shared UI primitives exist under `components/ui/` and cover buttons, icon buttons, panels, notices, badges, fields, modals, empty states, upload/dropzone, toolbar, and progress/status patterns.
+- [x] Core teacher workbench surfaces use the primitives instead of repeating local hex-heavy class strings.
+- [x] Student result view uses the design system without exposing teacher-only workflow density.
+- [x] The design system preserves empty-first runtime behavior and all teacher-confirmation boundaries.
 
 ### Non-Functional Requirements
 
-- [ ] No new runtime dependency is added unless implementation discovers a clear need and documents it.
-- [ ] No new schema, Convex API, AI prompt, or provider behavior is introduced.
-- [ ] Accessibility is maintained or improved for keyboard focus, labels, contrast, disabled states, and reduced-width layouts.
-- [ ] Visual changes do not cause document preview or annotation overlay misalignment.
-- [ ] The UI does not become dominated by a single hue; warm olive, correction red, ink, paper, and brass each have clear roles.
+- [x] No new runtime dependency is added unless implementation discovers a clear need and documents it.
+- [x] No new schema, Convex API, AI prompt, or provider behavior is introduced.
+- [x] Accessibility is maintained or improved for keyboard focus, labels, contrast, disabled states, and reduced-width layouts.
+- [x] Visual changes do not cause document preview or annotation overlay misalignment.
+- [x] The UI does not become dominated by a single hue; warm olive, correction red, ink, paper, and brass each have clear roles.
 
 ### Quality Gates
 
-- [ ] `npm run typecheck`
-- [ ] `npm run lint`
-- [ ] `npm test`
-- [ ] `npm run build`
-- [ ] Browser smoke check for setup-required/auth/no-tests/test-created/work-uploaded/review/student-result states when practical.
-- [ ] Screenshot review at desktop and narrow viewport widths for text overlap and control stability.
+- [x] `npm run typecheck`
+- [x] `npm run lint`
+- [x] `npm test`
+- [x] `npm run build`
+- [x] Browser smoke check for setup-required/auth/no-tests/test-created/work-uploaded/review/student-result states when practical.
+- [x] Screenshot review at desktop and narrow viewport widths for text overlap and control stability.
 
 ## Success Metrics
 

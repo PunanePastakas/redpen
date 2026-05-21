@@ -17,8 +17,7 @@ import {
   Trash2,
   Undo2,
   Upload,
-  UserPlus,
-  X
+  UserPlus
 } from "lucide-react"
 import { api } from "@/convex/_generated/api"
 import type { Doc, Id } from "@/convex/_generated/dataModel"
@@ -29,7 +28,16 @@ import { DocumentViewer, type PreviewUpload } from "@/components/document-viewer
 import { GlobalNavbar } from "@/components/global-navbar"
 import { MathText } from "@/components/math-text"
 import { StatusPill } from "@/components/status-pill"
+import { Button } from "@/components/ui/button"
+import { EmptyState } from "@/components/ui/empty-state"
+import { Field, Textarea, TextInput } from "@/components/ui/field"
+import { FileDropzone } from "@/components/ui/file-dropzone"
+import { IconButton } from "@/components/ui/icon-button"
+import { Modal } from "@/components/ui/modal"
+import { Panel } from "@/components/ui/panel"
+import { Select } from "@/components/ui/select"
 import { sha256FileHex } from "@/lib/browser-hashing"
+import { cn } from "@/lib/classnames"
 import { inferFileKind, validateUploadFile, type UploadRole } from "@/lib/file-validation"
 import { canRemoveWorkFromActiveWorkflow, selectNextWorkIdAfterRemoval } from "@/lib/workflow-state"
 
@@ -53,7 +61,7 @@ export function WorkbenchShell() {
   }
 
   return (
-    <main className="min-h-screen bg-[#f6f8f5]">
+    <main className="min-h-screen">
       <AuthLoading>
         <GlobalNavbar />
         <CenteredState title="Seansi kontrollimine" body="RedPen valmistab töölauda ette." />
@@ -73,11 +81,11 @@ function UnauthenticatedEmptyState() {
   return (
     <div className="mx-auto grid min-h-[70vh] max-w-5xl items-center gap-5 px-4 py-10 lg:grid-cols-[minmax(0,1fr)_380px]">
       <section>
-        <div className="flex h-12 w-12 items-center justify-center rounded-full border border-[#dbe2dc] bg-white text-[#0f766e]">
+        <div className="flex h-12 w-12 items-center justify-center border border-[var(--rp-ink)] bg-[var(--rp-primary-soft)] text-[var(--rp-primary-strong)] shadow-[var(--rp-shadow-ink-soft)]">
           <FileText aria-hidden="true" size={22} />
         </div>
-        <h2 className="mt-5 text-3xl font-semibold">Grade math tests 10x faster</h2>
-        <p className="mt-3 max-w-xl text-sm leading-6 text-[#647067]">
+        <h2 className="font-display mt-5 text-4xl font-semibold leading-tight">Grade math tests with a calmer red pen</h2>
+        <p className="mt-3 max-w-xl text-sm leading-6 text-[var(--rp-muted)]">
           Upload student works, get automatic AI assessment, approve and share with students.
         </p>
       </section>
@@ -88,7 +96,7 @@ function UnauthenticatedEmptyState() {
 
 function SetupRequiredShell() {
   return (
-    <main className="min-h-screen bg-[#f6f8f5]">
+    <main className="min-h-screen">
       <GlobalNavbar />
       <CenteredState
         title="Convex setup required"
@@ -536,30 +544,32 @@ function LiveWorkbench() {
       />
       <div className="mx-auto grid max-w-[1500px] gap-4 p-4 xl:grid-cols-[300px_minmax(0,1fr)_430px]">
         <aside className="space-y-4">
-          <section className="rounded-lg border border-[#dbe2dc] bg-white p-4 shadow-sm">
+          <Panel>
             <div className="flex items-center justify-between gap-2">
               <h2 className="font-semibold">Kontrolltööd</h2>
-              <button className="rounded-md p-2 text-[#0f766e] hover:bg-[#eef8f6]" title="Create test" aria-label="Create test" onClick={() => setShowCreateTestModal(true)}>
+              <IconButton title="Create test" aria-label="Create test" onClick={() => setShowCreateTestModal(true)} variant="primary">
                 <Plus size={17} />
-              </button>
+              </IconButton>
             </div>
             {tests.length > 0 ? (
               <div className="mt-3 space-y-2">
                 {tests.map((test) => (
                   <div
                     key={test._id}
-                    className={`flex w-full items-start gap-2 rounded-md border p-2 text-sm ${
-                      activeTestId === test._id ? "border-[#0f766e] bg-[#f0fdfa]" : "border-[#dbe2dc] bg-white hover:bg-[#f7faf8]"
-                    }`}
+                    className={cn(
+                      "flex w-full items-start gap-2 rounded-[var(--rp-radius-control)] border p-2 text-sm transition",
+                      activeTestId === test._id
+                        ? "border-[var(--rp-ink)] bg-[var(--rp-primary-wash)] shadow-[var(--rp-shadow-ink-soft)]"
+                        : "border-[var(--rp-border)] bg-[var(--rp-surface)] hover:border-[var(--rp-ink)] hover:bg-[var(--rp-surface-warm)]"
+                    )}
                   >
                     <button className="min-w-0 flex-1 text-left" onClick={() => selectTest(test._id)}>
                       <span className="block truncate font-semibold">{test.title}</span>
-                      <span className="mt-1 block text-xs text-[#647067]">
+                      <span className="mt-1 block text-xs text-[var(--rp-muted)]">
                         {test.defaultFeedbackLanguage === "et" ? "Eesti tagasiside" : "English feedback"} · {contextCountByTestId.get(test._id) ?? 0} juhendit
                       </span>
                     </button>
-                    <button
-                      className="rounded-md p-2 text-[#526059] hover:bg-[#eef3ef]"
+                    <IconButton
                       title="Muuda testi seadeid"
                       aria-label={`Muuda testi ${test.title} seadeid`}
                       onClick={() => {
@@ -568,24 +578,24 @@ function LiveWorkbench() {
                       }}
                     >
                       <Pencil size={15} />
-                    </button>
+                    </IconButton>
                   </div>
                 ))}
               </div>
             ) : (
-              <div className="mt-3 rounded-md border border-dashed border-[#a7b4aa] bg-[#f7faf8] p-4">
-                <p className="text-sm font-semibold">Kontrolltöid pole veel</p>
-                <p className="mt-2 text-sm leading-6 text-[#647067]">Loo esimene test, et lisada hindamisjuhend ja õpilaste tööd.</p>
-                <button
-                  className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-md bg-[#0f766e] px-3 py-2 text-sm font-semibold text-white hover:bg-[#115e59]"
-                  onClick={() => setShowCreateTestModal(true)}
-                >
-                  <Plus size={16} />
-                  Loo test
-                </button>
-              </div>
+              <EmptyState
+                action={(
+                  <Button className="w-full" onClick={() => setShowCreateTestModal(true)} variant="primary">
+                    <Plus size={16} />
+                    Loo test
+                  </Button>
+                )}
+                body="Loo esimene test, et lisada hindamisjuhend ja õpilaste tööd."
+                className="mt-3 min-h-0 p-4"
+                title="Kontrolltöid pole veel"
+              />
             )}
-          </section>
+          </Panel>
         </aside>
 
         <div className="min-w-0 space-y-4">
@@ -595,46 +605,40 @@ function LiveWorkbench() {
             onDismiss={dismissStatusMessages}
           />
           {!activeTestId ? (
-            <section className="rounded-lg border border-[#dbe2dc] bg-white p-8 text-center shadow-sm">
-              <Upload className="mx-auto text-[#526059]" aria-hidden="true" size={36} />
-              <h2 className="mt-4 text-xl font-semibold">Vali või loo test</h2>
-              <p className="mt-2 text-sm leading-6 text-[#647067]">Tööde üleslaadimine avaneb pärast testi loomist.</p>
-            </section>
-          ) : !works ? (
-            <section className="rounded-lg border border-[#dbe2dc] bg-white p-8 text-center shadow-sm">
-              <Loader2 className="mx-auto animate-spin text-[#0f766e]" aria-hidden="true" size={34} />
-              <h2 className="mt-4 text-xl font-semibold">Laen töid</h2>
-              <p className="mt-2 text-sm leading-6 text-[#647067]">Küsin valitud testi töid Convexist.</p>
-            </section>
-          ) : works.length === 0 ? (
-            <section className="rounded-lg border border-dashed border-[#a7b4aa] bg-white p-8 text-center shadow-sm">
-              <Upload className="mx-auto text-[#0f766e]" aria-hidden="true" size={38} />
-              <h2 className="mt-4 text-xl font-semibold">Lisa esimene töö</h2>
-              <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-[#647067]">Laadi üles JPG, PNG või PDF. Pärast üleslaadimist ilmub siia kohe eelvaade.</p>
-              <input
-                ref={workInputRef}
-                className="sr-only"
-                type="file"
-                accept="image/jpeg,image/png,application/pdf"
-                multiple
-                onChange={(event) => void handleWorkUpload(event.target.files)}
+            <Panel>
+              <EmptyState
+                body="Tööde üleslaadimine avaneb pärast testi loomist."
+                className="border-0 bg-transparent"
+                icon={<Upload aria-hidden="true" size={36} />}
+                title="Vali või loo test"
               />
-              <button
-                className="mt-5 inline-flex items-center justify-center gap-2 rounded-md bg-[#0f766e] px-4 py-2 text-sm font-semibold text-white hover:bg-[#115e59]"
-                disabled={uploading}
-                onClick={() => workInputRef.current?.click()}
-              >
-                {uploading ? <Loader2 className="animate-spin" size={16} /> : <Upload size={16} />}
-                Laadi tööd üles
-              </button>
-            </section>
+            </Panel>
+          ) : !works ? (
+            <Panel>
+              <EmptyState
+                body="Küsin valitud testi töid Convexist."
+                className="border-0 bg-transparent"
+                icon={<Loader2 aria-hidden="true" className="animate-spin" size={34} />}
+                title="Laen töid"
+              />
+            </Panel>
+          ) : works.length === 0 ? (
+            <FileDropzone
+              accept="image/jpeg,image/png,application/pdf"
+              body="Laadi üles JPG, PNG või PDF. Pärast üleslaadimist ilmub siia kohe eelvaade."
+              buttonLabel="Laadi tööd üles"
+              loading={uploading}
+              multiple
+              onFiles={(files) => void handleWorkUpload(files)}
+              title="Lisa esimene töö"
+            />
           ) : (
             <>
-              <section className="rounded-lg border border-[#dbe2dc] bg-white p-4 shadow-sm">
+              <Panel>
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
                     <h2 className="font-semibold">Töö eelvaade</h2>
-                    <p className="mt-1 truncate text-sm text-[#647067]">{selectedWorkFiles[0]?.filename ?? "Faili eelvaade avaneb pärast üleslaadimist."}</p>
+                    <p className="mt-1 truncate text-sm text-[var(--rp-muted)]">{selectedWorkFiles[0]?.filename ?? "Faili eelvaade avaneb pärast üleslaadimist."}</p>
                   </div>
                   {selectedWork ? <StatusPill status={selectedWork.status} /> : null}
                 </div>
@@ -643,13 +647,16 @@ function LiveWorkbench() {
                     {works.map((work, index) => (
                       <button
                         key={work._id}
-                        className={`shrink-0 rounded-md border px-3 py-2 text-left text-sm ${
-                          activeWorkId === work._id ? "border-[#0f766e] bg-[#f0fdfa]" : "border-[#dbe2dc] bg-white hover:bg-[#f7faf8]"
-                        }`}
+                        className={cn(
+                          "shrink-0 rounded-[var(--rp-radius-control)] border px-3 py-2 text-left text-sm transition",
+                          activeWorkId === work._id
+                            ? "border-[var(--rp-ink)] bg-[var(--rp-primary-wash)] shadow-[var(--rp-shadow-ink-soft)]"
+                            : "border-[var(--rp-border)] bg-[var(--rp-surface)] hover:border-[var(--rp-ink)] hover:bg-[var(--rp-surface-warm)]"
+                        )}
                         onClick={() => selectWork(work._id)}
                       >
                         <span className="block max-w-36 truncate font-semibold">{work.detectedName || `Töö ${index + 1}`}</span>
-                        <span className="mt-1 block text-xs text-[#647067]">{work.status.replace("_", " ")}</span>
+                        <span className="mt-1 block text-xs text-[var(--rp-muted)]">{work.status.replace("_", " ")}</span>
                       </button>
                     ))}
                   </div>
@@ -663,34 +670,31 @@ function LiveWorkbench() {
                   onChange={(event) => void handleWorkUpload(event.target.files)}
                 />
                 <div className="mt-3 flex flex-wrap gap-2">
-                  <button
-                    className="inline-flex items-center gap-2 rounded-md border border-[#dbe2dc] px-3 py-2 text-sm font-semibold hover:bg-[#f7faf8]"
+                  <Button
                     disabled={uploading}
                     onClick={() => workInputRef.current?.click()}
+                    variant="secondary"
                   >
                     {uploading ? <Loader2 className="animate-spin" size={16} /> : <Upload size={16} />}
                     Lisa töid
-                  </button>
-                  <button
-                    className="inline-flex items-center gap-2 rounded-md border border-red-200 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-50"
+                  </Button>
+                  <Button
                     disabled={!selectedWork || !canRemoveWorkFromActiveWorkflow(selectedWork.status) || removingWork}
                     title={selectedWork && !canRemoveWorkFromActiveWorkflow(selectedWork.status) ? "Seda tööd ei saa praegu aktiivsest töövoost eemaldada" : "Eemalda töö aktiivsest töövoost"}
                     onClick={() => void removeSelectedWork()}
+                    variant="danger"
                   >
                     {removingWork ? <Loader2 className="animate-spin" size={16} /> : <Trash2 size={16} />}
                     Eemalda
-                  </button>
+                  </Button>
                   {removedWorkUndo ? (
-                    <button
-                      className="inline-flex items-center gap-2 rounded-md border border-[#dbe2dc] px-3 py-2 text-sm font-semibold hover:bg-[#f7faf8]"
-                      onClick={() => void undoRemoveWork()}
-                    >
+                    <Button onClick={() => void undoRemoveWork()} variant="secondary">
                       <Undo2 size={16} />
                       Taasta {removedWorkUndo.label}
-                    </button>
+                    </Button>
                   ) : null}
                 </div>
-              </section>
+              </Panel>
               <DocumentViewer
                 file={selectedPreview}
                 annotations={annotations}
@@ -704,11 +708,11 @@ function LiveWorkbench() {
         </div>
 
         <aside className="space-y-4">
-          <section className="rounded-lg border border-[#dbe2dc] bg-white p-4 shadow-sm">
+          <Panel>
             <div className="flex items-start justify-between gap-3">
               <div>
                 <h2 className="font-semibold">Analysis</h2>
-                <p className="mt-1 text-sm text-[#647067]">
+                <p className="mt-1 text-sm text-[var(--rp-muted)]">
                   {!selectedWork
                     ? "Select or upload a work first."
                     : selectedWork.status === "error"
@@ -720,39 +724,41 @@ function LiveWorkbench() {
                         : "Run analysis for the selected work."}
                 </p>
               </div>
-              {selectedWork && runningStatuses.includes(selectedWork.status) ? <Loader2 className="mt-1 animate-spin text-[#0f766e]" aria-hidden="true" size={18} /> : null}
+              {selectedWork && runningStatuses.includes(selectedWork.status) ? <Loader2 className="mt-1 animate-spin text-[var(--rp-primary)]" aria-hidden="true" size={18} /> : null}
             </div>
             <div className="mt-3 grid gap-2 sm:grid-cols-2">
-              <button
-                className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-[#0f766e] px-3 py-2 text-sm font-semibold text-white hover:bg-[#115e59]"
+              <Button
+                className="w-full"
                 disabled={!canRunBatchAnalysis}
                 onClick={() => void runBatchAnalysis()}
+                variant="primary"
               >
                 <Play size={16} />
                 Run all
-              </button>
-              <button
-                className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-[#dbe2dc] px-3 py-2 text-sm font-semibold hover:bg-[#f7faf8]"
+              </Button>
+              <Button
+                className="w-full"
                 disabled={!canRunSelectedAnalysis}
                 onClick={() => void runAnalysis()}
+                variant="secondary"
               >
                 {selectedWork && runningStatuses.includes(selectedWork.status) ? <Loader2 className="animate-spin" size={16} /> : <Play size={16} />}
                 {selectedWork?.status === "error" ? "Retry selected" : "Run selected"}
-              </button>
+              </Button>
             </div>
-          </section>
+          </Panel>
 
           {hasReviewOutput ? (
-            <section className="rounded-lg border border-[#dbe2dc] bg-white p-4 shadow-sm">
+            <Panel>
               <h2 className="font-semibold">Student link</h2>
               {selectedStudent ? (
-                <p className="mt-2 text-sm text-[#647067]">Linked to {selectedStudent.displayName}</p>
+                <p className="mt-2 text-sm text-[var(--rp-muted)]">Linked to {selectedStudent.displayName}</p>
               ) : (
-                <p className="mt-2 text-sm text-[#647067]">Link or create a student before confirmation and sharing.</p>
+                <p className="mt-2 text-sm text-[var(--rp-muted)]">Link or create a student before confirmation and sharing.</p>
               )}
               {students?.length ? (
-                <select
-                  className="mt-3 w-full rounded-md border border-[#cbd5ce] px-3 py-2 text-sm outline-none focus:border-[#0f766e]"
+                <Select
+                  className="mt-3"
                   value={currentExistingStudentId}
                   disabled={!selectedWork}
                   onChange={(event) => setStudentDraft({ workId: activeWorkId, name: currentStudentName, existingStudentId: event.target.value as Id<"students"> | "" })}
@@ -761,32 +767,33 @@ function LiveWorkbench() {
                   {students.map((student) => (
                     <option key={student._id} value={student._id}>{student.displayName}</option>
                   ))}
-                </select>
+                </Select>
               ) : null}
-              <input
-                className="mt-3 w-full rounded-md border border-[#cbd5ce] px-3 py-2 text-sm outline-none focus:border-[#0f766e]"
+              <TextInput
+                className="mt-3"
                 placeholder="Student name"
                 value={currentStudentName}
                 disabled={!selectedWork}
                 onChange={(event) => setStudentDraft({ workId: activeWorkId, name: event.target.value, existingStudentId: currentExistingStudentId })}
               />
-              <button
-                className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-md border border-[#dbe2dc] px-3 py-2 text-sm font-semibold hover:bg-[#f7faf8]"
+              <Button
+                className="mt-3 w-full"
                 disabled={!selectedWork}
                 onClick={() => void linkStudent()}
+                variant="secondary"
               >
                 <UserPlus size={16} />
                 Link student
-              </button>
-            </section>
+              </Button>
+            </Panel>
           ) : null}
 
           {taskReviews?.length ? (
-            <section className="rounded-lg border border-[#dbe2dc] bg-white p-4 shadow-sm">
+            <Panel>
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <h2 className="font-semibold">Review queue</h2>
-                  <p className="mt-1 text-sm text-[#647067]">Accept, edit, reject, or replace every draft.</p>
+                  <p className="mt-1 text-sm text-[var(--rp-muted)]">Accept, edit, reject, or replace every draft.</p>
                 </div>
                 <AITransparencyMarker variant="badge" />
               </div>
@@ -794,17 +801,20 @@ function LiveWorkbench() {
                 {taskReviews.map((review) => (
                   <button
                     key={review._id}
-                    className={`w-full rounded-md border px-3 py-2 text-left text-sm ${
-                      activeTaskReviewId === review._id ? "border-[#0f766e] bg-[#f0fdfa]" : "border-[#dbe2dc] hover:bg-[#f7faf8]"
-                    }`}
+                    className={cn(
+                      "w-full rounded-[var(--rp-radius-control)] border px-3 py-2 text-left text-sm transition",
+                      activeTaskReviewId === review._id
+                        ? "border-[var(--rp-ink)] bg-[var(--rp-primary-wash)] shadow-[var(--rp-shadow-ink-soft)]"
+                        : "border-[var(--rp-border)] bg-[var(--rp-surface)] hover:border-[var(--rp-ink)] hover:bg-[var(--rp-surface-warm)]"
+                    )}
                     onClick={() => setSelectedTaskReviewId(review._id)}
                   >
                     <span className="flex items-center justify-between gap-2">
                       <span className="font-semibold">{review.stableKey}</span>
-                      <span className="text-xs text-[#647067]">{review.status.replace("_", " ")}</span>
+                      <span className="text-xs text-[var(--rp-muted)]">{review.status.replace("_", " ")}</span>
                     </span>
                     <span className="mt-2 flex flex-wrap items-center gap-2">
-                      <span className="text-xs font-semibold text-[#647067]">
+                      <span className="text-xs font-semibold text-[var(--rp-muted)]">
                         Suggested {pointsOutOfMaxLabel(reviewSuggestedPoints(review), reviewMaxPoints(review))} pts
                       </span>
                       <ScoreBandBadge band={reviewScoreBand(review)} />
@@ -812,33 +822,31 @@ function LiveWorkbench() {
                   </button>
                 ))}
               </div>
-            </section>
+            </Panel>
           ) : null}
 
           {selectedReview ? (
-            <section className="rounded-lg border border-[#dbe2dc] bg-white p-4 shadow-sm">
+            <Panel>
               <h2 className="font-semibold">{selectedReview.stableKey}</h2>
               <div className="mt-4">
                 <AITransparencyMarker variant="inline" contentType="tagasiside" />
               </div>
               <ReviewScoreSummary review={selectedReview} />
               <GradingTaskPreview review={selectedReview} />
-              <label className="mt-4 block text-sm font-semibold" htmlFor="feedback-draft">
-                Final feedback
-              </label>
-              <textarea
-                key={selectedReview._id}
-                id="feedback-draft"
-                className="mt-2 min-h-28 w-full resize-y rounded-md border border-[#cbd5ce] p-3 text-sm leading-6 outline-none focus:border-[#0f766e]"
-                defaultValue={selectedReview.feedbackConfirmed ?? selectedReview.feedbackDraft}
-                onBlur={(event) => void updateSelectedReview({ status: "edited", feedbackConfirmed: event.target.value })}
-              />
+              <Field className="mt-4" htmlFor="feedback-draft" label="Final feedback">
+                <Textarea
+                  key={selectedReview._id}
+                  id="feedback-draft"
+                  defaultValue={selectedReview.feedbackConfirmed ?? selectedReview.feedbackDraft}
+                  onBlur={(event) => void updateSelectedReview({ status: "edited", feedbackConfirmed: event.target.value })}
+                />
+              </Field>
               <div className="mt-3 grid grid-cols-2 gap-3">
                 <label className="text-sm font-semibold">
-                  Points <span className="font-normal text-[#647067]">/ {formatPoints(reviewMaxPoints(selectedReview))}</span>
-                  <input
+                  Points <span className="font-normal text-[var(--rp-muted)]">/ {formatPoints(reviewMaxPoints(selectedReview))}</span>
+                  <TextInput
                     key={`${selectedReview._id}-points`}
-                    className="mt-2 w-full rounded-md border border-[#cbd5ce] px-3 py-2 outline-none focus:border-[#0f766e]"
+                    className="mt-2"
                     type="number"
                     min={0}
                     max={reviewMaxPoints(selectedReview) ?? undefined}
@@ -853,8 +861,8 @@ function LiveWorkbench() {
                 </label>
                 <label className="text-sm font-semibold">
                   Status
-                  <select
-                    className="mt-2 w-full rounded-md border border-[#cbd5ce] px-3 py-2 outline-none focus:border-[#0f766e]"
+                  <Select
+                    className="mt-2"
                     value={selectedReview.status}
                     onChange={(event) => void updateSelectedReview({ status: event.target.value as ReviewStatus })}
                   >
@@ -864,29 +872,29 @@ function LiveWorkbench() {
                     <option value="rejected">Rejected</option>
                     <option value="manual">Manual</option>
                     <option value="confirmed">Confirmed</option>
-                  </select>
+                  </Select>
                 </label>
               </div>
               <div className="mt-4 flex flex-wrap gap-2">
-                <button className="inline-flex items-center gap-2 rounded-md bg-[#0f766e] px-3 py-2 text-sm font-semibold text-white hover:bg-[#115e59]" onClick={() => void updateSelectedReview({ status: "accepted" })}>
+                <Button onClick={() => void updateSelectedReview({ status: "accepted" })} variant="primary">
                   <Check size={16} />
                   Accept
-                </button>
-                <button className="inline-flex items-center gap-2 rounded-md border border-[#dbe2dc] px-3 py-2 text-sm font-semibold hover:bg-[#f7faf8]" onClick={() => void updateSelectedReview({ status: "manual", feedbackConfirmed: "" })}>
+                </Button>
+                <Button onClick={() => void updateSelectedReview({ status: "manual", feedbackConfirmed: "" })} variant="secondary">
                   <Pencil size={16} />
                   Replace
-                </button>
+                </Button>
               </div>
-            </section>
+            </Panel>
           ) : null}
 
           {hasReviewOutput ? (
-              <section className="rounded-lg border border-[#dbe2dc] bg-white p-4 shadow-sm">
+              <Panel>
                 <h2 className="font-semibold">Final result</h2>
-                <p className="mt-2 text-sm text-[#647067]">Total: {formatPoints(totalPoints)} / {formatPoints(totalMaxPoints ?? selectedTest?.maxPoints)}</p>
+                <p className="mt-2 text-sm text-[var(--rp-muted)]">Total: {formatPoints(totalPoints)} / {formatPoints(totalMaxPoints ?? selectedTest?.maxPoints)}</p>
                 <FullTranscriptDisclosure transcription={selectedWork?.fullTranscription} />
-                <textarea
-                  className="mt-3 min-h-24 w-full resize-y rounded-md border border-[#cbd5ce] p-3 text-sm leading-6 outline-none focus:border-[#0f766e]"
+                <Textarea
+                  className="mt-3 min-h-24"
                   placeholder="Final feedback"
                   value={currentFinalFeedback}
                   disabled={!selectedWork}
@@ -900,8 +908,8 @@ function LiveWorkbench() {
                     })
                   }
                 />
-                <input
-                  className="mt-3 w-full rounded-md border border-[#cbd5ce] px-3 py-2 text-sm outline-none focus:border-[#0f766e]"
+                <TextInput
+                  className="mt-3"
                   placeholder="Optional grade"
                   value={currentGrade}
                   disabled={!selectedWork}
@@ -916,7 +924,7 @@ function LiveWorkbench() {
                   }
                 />
                 <div className="mt-3 space-y-2">
-                  <label className="flex items-center justify-between gap-3 rounded-md border border-[#dbe2dc] px-3 py-2 text-sm">
+                  <label className="flex items-center justify-between gap-3 rounded-[var(--rp-radius-control)] border border-[var(--rp-border)] bg-[var(--rp-surface)] px-3 py-2 text-sm">
                     Show points to student
                     <input
                       type="checkbox"
@@ -933,7 +941,7 @@ function LiveWorkbench() {
                       }
                     />
                   </label>
-                  <label className="flex items-center justify-between gap-3 rounded-md border border-[#dbe2dc] px-3 py-2 text-sm">
+                  <label className="flex items-center justify-between gap-3 rounded-[var(--rp-radius-control)] border border-[var(--rp-border)] bg-[var(--rp-surface)] px-3 py-2 text-sm">
                     Show grade to student
                     <input
                       type="checkbox"
@@ -952,39 +960,42 @@ function LiveWorkbench() {
                   </label>
                 </div>
                 <div className="mt-4 grid gap-2 sm:grid-cols-2">
-                  <button
-                    className="inline-flex items-center justify-center gap-2 rounded-md bg-[#0f766e] px-3 py-2 text-sm font-semibold text-white hover:bg-[#115e59]"
+                  <Button
+                    className="w-full"
                     onClick={() => void confirmSelectedResult()}
                     disabled={!selectedWork || !linkedStudentId || !allReviewed || !currentFinalFeedback.trim()}
                     title={!linkedStudentId ? "Link a student before confirmation" : allReviewed ? "Confirm result" : "Review every task before confirmation"}
+                    variant="primary"
                   >
                     <Save size={16} />
                     Confirm
-                  </button>
-                  <button
-                    className="inline-flex items-center justify-center gap-2 rounded-md border border-[#dbe2dc] px-3 py-2 text-sm font-semibold hover:bg-[#f7faf8]"
+                  </Button>
+                  <Button
+                    className="w-full"
                     onClick={() => void shareSelectedResult()}
                     disabled={!activeResultId || !linkedStudentId}
+                    variant="secondary"
                   >
                     <Share2 size={16} />
                     Share
-                  </button>
-                  <button
-                    className="inline-flex items-center justify-center gap-2 rounded-md border border-[#dbe2dc] px-3 py-2 text-sm font-semibold hover:bg-[#f7faf8]"
+                  </Button>
+                  <Button
+                    className="w-full"
                     onClick={copyMockExport}
                     disabled={!mockExport}
+                    variant="secondary"
                   >
                     <Copy size={16} />
                     {mockExportCopied ? "Copied" : "Mock export"}
-                  </button>
+                  </Button>
                   {shareLink ? (
-                    <a className="inline-flex items-center justify-center gap-2 rounded-md border border-[#dbe2dc] px-3 py-2 text-sm font-semibold hover:bg-[#f7faf8]" href={shareLink}>
+                    <a className="inline-flex min-h-10 items-center justify-center gap-2 rounded-[var(--rp-radius-control)] border border-[var(--rp-border)] bg-[var(--rp-surface)] px-3 py-2 text-sm font-semibold hover:border-[var(--rp-ink)] hover:bg-[var(--rp-surface-warm)]" href={shareLink}>
                       <Link2 size={16} />
                       Open link
                     </a>
                   ) : null}
                 </div>
-              </section>
+              </Panel>
           ) : null}
         </aside>
       </div>
@@ -1006,49 +1017,44 @@ function CreateTestPanel({
   compact?: boolean
 }) {
   return (
-    <section className={compact ? "" : "rounded-lg border border-[#dbe2dc] bg-white p-5 shadow-sm"}>
+    <section className={compact ? "" : "rounded-[var(--rp-radius-panel)] border border-[var(--rp-border)] bg-[var(--rp-surface)] p-5 shadow-[var(--rp-shadow-ink-soft)]"}>
       {!compact ? <h2 className="text-xl font-semibold">Create your first test</h2> : null}
       <form className="mt-4 grid gap-3" onSubmit={onSubmit}>
-        <label className="text-sm font-semibold">
-          Title
-          <input
-            className="mt-2 w-full rounded-md border border-[#cbd5ce] px-3 py-2 text-sm outline-none focus:border-[#0f766e]"
+        <Field label="Title">
+          <TextInput
             placeholder="Algebra kontrolltöö"
             required
             value={newTest.title}
             onChange={(event) => onChange({ ...newTest, title: event.target.value })}
           />
-        </label>
-        <label className="text-sm font-semibold">
-          Feedback language
-          <select
-            className="mt-2 w-full rounded-md border border-[#cbd5ce] px-3 py-2 text-sm outline-none focus:border-[#0f766e]"
+        </Field>
+        <Field label="Feedback language">
+          <Select
             value={newTest.defaultFeedbackLanguage}
             onChange={(event) => onChange({ ...newTest, defaultFeedbackLanguage: event.target.value as FeedbackLanguage })}
           >
             <option value="et">Eesti</option>
             <option value="en">English</option>
-          </select>
-        </label>
-        <label className="text-sm font-semibold">
-          Hindamisjuhend / Grading guide <span className="font-normal text-[#647067]">(optional)</span>
-          <input
+          </Select>
+        </Field>
+        <Field label={<>Hindamisjuhend / Grading guide <span className="font-normal text-[var(--rp-muted)]">(optional)</span></>}>
+          <TextInput
             key={newTest.gradingGuideFile ? "guide-selected" : "guide-empty"}
-            className="mt-2 w-full rounded-md border border-[#cbd5ce] bg-white px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-[#eef8f6] file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-[#0f766e] hover:file:bg-[#dff2ef]"
+            className="file:mr-3 file:rounded-[var(--rp-radius-control)] file:border-0 file:bg-[var(--rp-primary-soft)] file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-[var(--rp-primary-strong)] hover:file:bg-[var(--rp-primary-wash)]"
             type="file"
             accept="image/jpeg,image/png,application/pdf,text/plain"
             onChange={(event) => onChange({ ...newTest, gradingGuideFile: event.target.files?.[0] ?? null })}
           />
-        </label>
+        </Field>
         {newTest.gradingGuideFile ? (
-          <p className="text-xs leading-5 text-[#647067]">
+          <p className="text-xs leading-5 text-[var(--rp-muted)]">
             {newTest.gradingGuideFile.name} will be uploaded as grading context for LLM analysis.
           </p>
         ) : null}
-        <button className="inline-flex items-center justify-center gap-2 rounded-md bg-[#0f766e] px-4 py-2 text-sm font-semibold text-white hover:bg-[#115e59] disabled:cursor-not-allowed disabled:bg-[#8fb8b3]" disabled={pending || !newTest.title.trim()}>
-          {pending ? <Loader2 className="animate-spin" size={16} /> : <Plus size={16} />}
+        <Button disabled={pending || !newTest.title.trim()} loading={pending} type="submit" variant="primary">
+          {!pending ? <Plus size={16} /> : null}
           Create test
-        </button>
+        </Button>
       </form>
     </section>
   )
@@ -1069,53 +1075,16 @@ function CreateTestModal({
   onClose: () => void
   pending: boolean
 }) {
-  const dialogRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (!open) return
-    dialogRef.current?.focus()
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape" && !pending) onClose()
-    }
-    window.addEventListener("keydown", handleKeyDown)
-    return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [onClose, open, pending])
-
-  if (!open) return null
-
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget && !pending) onClose()
-      }}
+    <Modal
+      description="Start with the core setup. You can refine title, language, and guide later in the test rail."
+      onClose={onClose}
+      open={open}
+      pending={pending}
+      title="Create a new test"
     >
-      <div
-        ref={dialogRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="create-test-title"
-        tabIndex={-1}
-        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-lg border border-[#dbe2dc] bg-white p-5 shadow-xl outline-none"
-      >
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h2 id="create-test-title" className="text-xl font-semibold">Create a new test</h2>
-            <p className="mt-1 text-sm leading-6 text-[#647067]">Start with the core setup. You can refine title, language, and guide later in the test rail.</p>
-          </div>
-          <button
-            className="rounded-md p-2 text-[#526059] hover:bg-[#eef3ef]"
-            title="Close"
-            aria-label="Close create test modal"
-            disabled={pending}
-            onClick={onClose}
-          >
-            <X size={18} />
-          </button>
-        </div>
-        <CreateTestPanel compact newTest={newTest} onChange={onChange} onSubmit={onSubmit} pending={pending} />
-      </div>
-    </div>
+      <CreateTestPanel compact newTest={newTest} onChange={onChange} onSubmit={onSubmit} pending={pending} />
+    </Modal>
   )
 }
 
@@ -1171,56 +1140,20 @@ function EditTestDialog({
   pending: boolean
   uploading: boolean
 }) {
-  const dialogRef = useRef<HTMLDivElement>(null)
   const guideInputRef = useRef<HTMLInputElement>(null)
   const [title, setTitle] = useState(test.title)
   const [defaultFeedbackLanguage, setDefaultFeedbackLanguage] = useState<FeedbackLanguage>(test.defaultFeedbackLanguage)
 
-  useEffect(() => {
-    dialogRef.current?.focus()
-  }, [])
-
-  useEffect(() => {
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape" && !pending && !uploading) onClose()
-    }
-    window.addEventListener("keydown", handleKeyDown)
-    return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [onClose, pending, uploading])
-
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget && !pending && !uploading) onClose()
-      }}
+    <Modal
+      description="Pealkiri, tagasiside keel ja hindamisjuhend kuuluvad valitud testi juurde."
+      onClose={onClose}
+      open
+      pending={pending || uploading}
+      title="Muuda testi seadeid"
     >
-      <div
-        ref={dialogRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="edit-test-title"
-        tabIndex={-1}
-        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-lg border border-[#dbe2dc] bg-white p-5 shadow-xl outline-none"
-      >
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h2 id="edit-test-title" className="text-xl font-semibold">Muuda testi seadeid</h2>
-            <p className="mt-1 text-sm leading-6 text-[#647067]">Pealkiri, tagasiside keel ja hindamisjuhend kuuluvad valitud testi juurde.</p>
-          </div>
-          <button
-            className="rounded-md p-2 text-[#526059] hover:bg-[#eef3ef]"
-            title="Close"
-            aria-label="Close edit test modal"
-            disabled={pending || uploading}
-            onClick={onClose}
-          >
-            <X size={18} />
-          </button>
-        </div>
-
         <form
-          className="mt-4 grid gap-3"
+          className="grid gap-3"
           onSubmit={(event) => {
             event.preventDefault()
             const nextTitle = title.trim()
@@ -1228,49 +1161,45 @@ function EditTestDialog({
             onSave({ title: nextTitle, defaultFeedbackLanguage })
           }}
         >
-          <label className="text-sm font-semibold">
-            Pealkiri
-            <input
-              className="mt-2 w-full rounded-md border border-[#cbd5ce] px-3 py-2 text-sm outline-none focus:border-[#0f766e]"
+          <Field label="Pealkiri">
+            <TextInput
               required
               value={title}
               onChange={(event) => setTitle(event.target.value)}
             />
-          </label>
-          <label className="text-sm font-semibold">
-            Tagasiside keel
-            <select
-              className="mt-2 w-full rounded-md border border-[#cbd5ce] px-3 py-2 text-sm outline-none focus:border-[#0f766e]"
+          </Field>
+          <Field label="Tagasiside keel">
+            <Select
               value={defaultFeedbackLanguage}
               onChange={(event) => setDefaultFeedbackLanguage(event.target.value as FeedbackLanguage)}
             >
               <option value="et">Eesti</option>
               <option value="en">English</option>
-            </select>
-          </label>
+            </Select>
+          </Field>
           <div>
             <div className="flex items-center justify-between gap-3">
               <p className="text-sm font-semibold">Hindamisjuhend</p>
-              <button
+              <Button
                 type="button"
-                className="inline-flex items-center gap-2 rounded-md border border-[#dbe2dc] px-3 py-2 text-sm font-semibold hover:bg-[#f7faf8]"
                 disabled={uploading}
                 onClick={() => guideInputRef.current?.click()}
+                variant="secondary"
               >
                 {uploading ? <Loader2 className="animate-spin" size={16} /> : <Upload size={16} />}
                 Lisa
-              </button>
+              </Button>
             </div>
             {contextUploads.length > 0 ? (
               <div className="mt-2 space-y-1">
                 {contextUploads.map((upload) => (
-                  <p key={upload._id} className="truncate rounded-md border border-[#dbe2dc] bg-[#f7faf8] px-2 py-1.5 text-xs text-[#647067]">
+                  <p key={upload._id} className="truncate rounded-[var(--rp-radius-control)] border border-[var(--rp-border)] bg-[var(--rp-surface-subtle)] px-2 py-1.5 text-xs text-[var(--rp-muted)]">
                     {upload.filename}
                   </p>
                 ))}
               </div>
             ) : (
-              <p className="mt-2 text-sm leading-6 text-[#647067]">Juhendit pole veel lisatud.</p>
+              <p className="mt-2 text-sm leading-6 text-[var(--rp-muted)]">Juhendit pole veel lisatud.</p>
             )}
             <input
               ref={guideInputRef}
@@ -1284,16 +1213,17 @@ function EditTestDialog({
               }}
             />
           </div>
-          <button
-            className="inline-flex items-center justify-center gap-2 rounded-md bg-[#0f766e] px-4 py-2 text-sm font-semibold text-white hover:bg-[#115e59] disabled:cursor-not-allowed disabled:bg-[#8fb8b3]"
+          <Button
             disabled={pending || !title.trim()}
+            loading={pending}
+            type="submit"
+            variant="primary"
           >
-            {pending ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />}
+            {!pending ? <Save size={16} /> : null}
             Salvesta
-          </button>
+          </Button>
         </form>
-      </div>
-    </div>
+    </Modal>
   )
 }
 
@@ -1308,11 +1238,11 @@ function emptyNewTestDraft(): NewTestDraft {
 function CenteredState({ title, body }: { title: string; body: string }) {
   return (
     <div className="mx-auto flex min-h-[70vh] max-w-2xl flex-col items-center justify-center px-4 text-center">
-      <div className="flex h-12 w-12 items-center justify-center rounded-full border border-[#dbe2dc] bg-white text-[#0f766e]">
+      <div className="flex h-12 w-12 items-center justify-center border border-[var(--rp-ink)] bg-[var(--rp-surface)] text-[var(--rp-primary)] shadow-[var(--rp-shadow-ink-soft)]">
         <FileText aria-hidden="true" size={22} />
       </div>
-      <h2 className="mt-5 text-2xl font-semibold">{title}</h2>
-      <p className="mt-3 text-sm leading-6 text-[#647067]">{body}</p>
+      <h2 className="font-display mt-5 text-3xl font-semibold">{title}</h2>
+      <p className="mt-3 text-sm leading-6 text-[var(--rp-muted)]">{body}</p>
     </div>
   )
 }
@@ -1338,12 +1268,12 @@ function StatusMessages({
   return (
     <div key={toastKey} className="redpen-toast-stack" aria-live="polite" aria-atomic="true">
       {message ? (
-        <div className="redpen-toast rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700 shadow-lg shadow-emerald-950/10">
+        <div className="redpen-toast rounded-[var(--rp-radius-control)] border border-[var(--rp-success)] bg-[var(--rp-success-soft)] px-3 py-2 text-sm font-medium text-[var(--rp-success)] shadow-[var(--rp-shadow-ink-soft)]">
           {message}
         </div>
       ) : null}
       {error ? (
-        <div className="redpen-toast flex items-start gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700 shadow-lg shadow-red-950/10">
+        <div className="redpen-toast flex items-start gap-2 rounded-[var(--rp-radius-control)] border border-[var(--rp-correction)] bg-[var(--rp-correction-wash)] px-3 py-2 text-sm font-medium text-[var(--rp-correction)] shadow-[var(--rp-shadow-ink-soft)]">
           <AlertTriangle aria-hidden="true" size={16} />
           {error}
         </div>
@@ -1377,14 +1307,14 @@ function ReviewScoreSummary({ review }: { review: TaskReview }) {
   const band = reviewScoreBand(review)
 
   return (
-    <div className="mt-4 rounded-lg border border-[#dbe2dc] bg-[#fbfcfa] p-3">
+    <div className="mt-4 rounded-[var(--rp-radius-panel)] border border-[var(--rp-border)] bg-[var(--rp-surface-subtle)] p-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <ScoreBandBadge band={band} large />
         <div className="text-right">
-          <p className="text-xs font-semibold uppercase tracking-normal text-[#647067]">AI suggests</p>
-          <p className="text-2xl font-semibold text-[#15201b]">{pointsOutOfMaxLabel(suggested, max)}</p>
+          <p className="text-xs font-semibold uppercase tracking-normal text-[var(--rp-muted)]">AI suggests</p>
+          <p className="text-2xl font-semibold text-[var(--rp-text)]">{pointsOutOfMaxLabel(suggested, max)}</p>
           {confirmed !== undefined && confirmed !== suggested ? (
-            <p className="text-xs text-[#647067]">Teacher set {pointsOutOfMaxLabel(confirmed, max)}</p>
+            <p className="text-xs text-[var(--rp-muted)]">Teacher set {pointsOutOfMaxLabel(confirmed, max)}</p>
           ) : null}
         </div>
       </div>
@@ -1398,10 +1328,10 @@ function GradingTaskPreview({ review }: { review: TaskReview }) {
   if (!taskTranscript && !draft?.gradingRationale && !draft?.teacherReviewFlags?.length) return null
 
   return (
-    <div className="mt-4 space-y-3 rounded-md border border-[#dbe2dc] bg-[#fbfcfa] p-3 text-sm leading-6">
+    <div className="mt-4 space-y-3 rounded-[var(--rp-radius-panel)] border border-[var(--rp-border)] bg-[var(--rp-surface-subtle)] p-3 text-sm leading-6">
       {taskTranscript ? (
         <div>
-          <p className="font-semibold text-[#526059]">Task transcript</p>
+          <p className="font-semibold text-[var(--rp-muted-strong)]">Task transcript</p>
           <div className="mt-1">
             <MathText text={taskTranscript} />
           </div>
@@ -1409,7 +1339,7 @@ function GradingTaskPreview({ review }: { review: TaskReview }) {
       ) : null}
       {draft.gradingRationale ? (
         <div>
-          <p className="font-semibold text-[#526059]">Grading rationale</p>
+          <p className="font-semibold text-[var(--rp-muted-strong)]">Grading rationale</p>
           <div className="mt-1">
             <MathText text={draft.gradingRationale} />
           </div>
@@ -1417,7 +1347,7 @@ function GradingTaskPreview({ review }: { review: TaskReview }) {
       ) : null}
       {draft.teacherReviewFlags?.length ? (
         <div>
-          <p className="font-semibold text-[#526059]">Review flags</p>
+          <p className="font-semibold text-[var(--rp-muted-strong)]">Review flags</p>
           <ul className="mt-1 list-disc space-y-1 pl-5">
             {draft.teacherReviewFlags.map((flag) => (
               <li key={flag}>
@@ -1436,16 +1366,16 @@ function FullTranscriptDisclosure({ transcription }: { transcription: unknown })
   if (sections.length === 0) return null
 
   return (
-    <details className="mt-4 rounded-md border border-[#dbe2dc] bg-white">
-      <summary className="cursor-pointer px-3 py-2 text-sm font-semibold text-[#15201b]">
+    <details className="mt-4 rounded-[var(--rp-radius-panel)] border border-[var(--rp-border)] bg-[var(--rp-surface)]">
+      <summary className="cursor-pointer px-3 py-2 text-sm font-semibold text-[var(--rp-text)]">
         Full student transcript
       </summary>
-      <div className="border-t border-[#dbe2dc] p-3">
+      <div className="border-t border-[var(--rp-border)] p-3">
         <div className="max-h-72 space-y-4 overflow-auto pr-1 text-sm leading-6">
           {sections.map((section) => (
             <section key={section.key}>
-              <p className="mb-2 text-xs font-semibold uppercase tracking-normal text-[#647067]">{section.label}</p>
-              <div className="whitespace-pre-wrap rounded border border-[#eef3ef] bg-[#fbfcfa] px-2 py-1">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-normal text-[var(--rp-muted)]">{section.label}</p>
+              <div className="whitespace-pre-wrap rounded-[var(--rp-radius-control)] border border-[var(--rp-border)] bg-[var(--rp-surface-subtle)] px-2 py-1">
                 <MathText text={section.text} />
               </div>
             </section>
@@ -1463,7 +1393,7 @@ function ScoreBandBadge({ band, large = false }: { band: TaskScoreBand | null; l
   const sizeClass = large ? "px-3 py-2 text-base sm:text-lg" : "px-2 py-1 text-xs"
 
   return (
-    <span className={`inline-flex items-center rounded-md border font-semibold ${sizeClass} ${tone.className}`}>
+    <span className={`inline-flex items-center rounded-[var(--rp-radius-control)] border font-semibold ${sizeClass} ${tone.className}`}>
       {tone.label}
     </span>
   )
@@ -1506,15 +1436,15 @@ function formatPoints(value: number | null | undefined) {
 function scoreBandTone(band: TaskScoreBand) {
   switch (band) {
     case "full_points":
-      return { label: "Full points", className: "border-emerald-200 bg-emerald-50 text-emerald-800" }
+      return { label: "Full points", className: "border-[var(--rp-success)] bg-[var(--rp-success-soft)] text-[var(--rp-success)]" }
     case "minor_mistakes":
-      return { label: "Minor mistakes", className: "border-amber-200 bg-amber-50 text-amber-800" }
+      return { label: "Minor mistakes", className: "border-[var(--rp-brass)] bg-[var(--rp-brass-soft)] text-[var(--rp-brass-strong)]" }
     case "major_mistakes":
-      return { label: "Major mistakes", className: "border-red-200 bg-red-50 text-red-700" }
+      return { label: "Major mistakes", className: "border-[var(--rp-correction)] bg-[var(--rp-correction-wash)] text-[var(--rp-correction)]" }
     case "not_attempted":
-      return { label: "Not attempted", className: "border-slate-200 bg-slate-50 text-slate-700" }
+      return { label: "Not attempted", className: "border-[var(--rp-border)] bg-[var(--rp-surface-subtle)] text-[var(--rp-muted-strong)]" }
     case "unclear":
-      return { label: "Unclear", className: "border-orange-200 bg-orange-50 text-orange-800" }
+      return { label: "Unclear", className: "border-[var(--rp-brass)] bg-[var(--rp-brass-soft)] text-[var(--rp-text)]" }
   }
 }
 

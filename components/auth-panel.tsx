@@ -5,13 +5,16 @@ import { Authenticated, AuthLoading, Unauthenticated, useQuery } from "convex/re
 import { useAuthActions } from "@convex-dev/auth/react"
 import { LogIn, LogOut, UserPlus } from "lucide-react"
 import { api } from "@/convex/_generated/api"
+import { Button } from "@/components/ui/button"
+import { Field, TextInput } from "@/components/ui/field"
+import { Panel } from "@/components/ui/panel"
 
 const convexAuthEnabled = Boolean(process.env.NEXT_PUBLIC_CONVEX_URL)
 
 export function AuthPanel() {
   if (!convexAuthEnabled) {
     return (
-      <div className="rounded-md border border-[#dbe2dc] px-3 py-2 text-xs font-semibold text-[#526059]">
+      <div className="rounded-[var(--rp-radius-control)] border border-[var(--rp-border)] bg-[var(--rp-surface)] px-3 py-2 text-xs font-semibold text-[var(--rp-muted-strong)]">
         Setup required
       </div>
     )
@@ -26,18 +29,18 @@ export function SignUpSection() {
   }
 
   return (
-    <section className="rounded-lg border border-[#dbe2dc] bg-white p-5 shadow-sm">
+    <Panel variant="paper">
       <div className="flex items-start gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-[#eef8f6] text-[#0f766e]">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center border border-[var(--rp-ink)] bg-[var(--rp-primary-soft)] text-[var(--rp-primary-strong)]">
           <UserPlus aria-hidden="true" size={20} />
         </div>
         <div>
           <h2 className="text-xl font-semibold">Create your teacher workspace</h2>
-          <p className="mt-2 text-sm leading-6 text-[#647067]">Start with your own tests, grading context, and student work.</p>
+          <p className="mt-2 text-sm leading-6 text-[var(--rp-muted)]">Start with your own tests, grading context, and student work.</p>
         </div>
       </div>
       <PasswordSignUp />
-    </section>
+    </Panel>
   )
 }
 
@@ -45,7 +48,7 @@ function LiveAuthPanel() {
   return (
     <>
       <AuthLoading>
-        <div className="rounded-md border border-[#dbe2dc] px-3 py-2 text-xs font-semibold text-[#526059]">Checking session</div>
+        <div className="rounded-[var(--rp-radius-control)] border border-[var(--rp-border)] bg-[var(--rp-surface)] px-3 py-2 text-xs font-semibold text-[var(--rp-muted-strong)]">Checking session</div>
       </AuthLoading>
       <Unauthenticated>
         <PasswordSignIn />
@@ -78,29 +81,30 @@ function PasswordSignIn() {
       }}
     >
       <input name="flow" type="hidden" value="signIn" />
-      <input
-        className="h-9 w-44 rounded-md border border-[#cbd5ce] px-3 text-sm outline-none focus:border-[#0f766e]"
+      <TextInput
+        className="h-9 w-44 py-0"
         name="email"
         placeholder="Email"
         type="email"
         required
       />
-      <input
-        className="h-9 w-36 rounded-md border border-[#cbd5ce] px-3 text-sm outline-none focus:border-[#0f766e]"
+      <TextInput
+        className="h-9 w-36 py-0"
         name="password"
         placeholder="Password"
         type="password"
         required
       />
-      <button
-        className="inline-flex h-9 items-center gap-2 rounded-md bg-[#0f766e] px-3 text-sm font-semibold text-white hover:bg-[#115e59] disabled:opacity-60"
+      <Button
+        className="h-9"
         disabled={pending}
         type="submit"
+        variant="primary"
       >
         <LogIn size={16} />
         {pending ? "Wait" : "Sign in"}
-      </button>
-      {error ? <span className="text-xs font-semibold text-[#b42318]">{error}</span> : null}
+      </Button>
+      {error ? <span className="text-xs font-semibold text-[var(--rp-correction)]">{error}</span> : null}
     </form>
   )
 }
@@ -126,34 +130,19 @@ function PasswordSignUp() {
       }}
     >
       <input name="flow" type="hidden" value="signUp" />
-      <input
-        className="rounded-md border border-[#cbd5ce] px-3 py-2 text-sm outline-none focus:border-[#0f766e]"
-        name="name"
-        placeholder="Name"
-        required
-      />
-      <input
-        className="rounded-md border border-[#cbd5ce] px-3 py-2 text-sm outline-none focus:border-[#0f766e]"
-        name="email"
-        placeholder="Email"
-        type="email"
-        required
-      />
-      <input
-        className="rounded-md border border-[#cbd5ce] px-3 py-2 text-sm outline-none focus:border-[#0f766e]"
-        name="password"
-        placeholder="Password"
-        type="password"
-        required
-      />
-      <button
-        className="inline-flex items-center justify-center gap-2 rounded-md bg-[#0f766e] px-4 py-2 text-sm font-semibold text-white hover:bg-[#115e59] disabled:opacity-60"
-        disabled={pending}
-        type="submit"
-      >
+      <Field label="Name">
+        <TextInput name="name" placeholder="Name" required />
+      </Field>
+      <Field label="Email">
+        <TextInput name="email" placeholder="Email" required type="email" />
+      </Field>
+      <Field label="Password">
+        <TextInput name="password" placeholder="Password" required type="password" />
+      </Field>
+      <Button disabled={pending} type="submit" variant="primary">
         {pending ? "Creating" : "Sign up"}
-      </button>
-      {error ? <p className="text-sm font-semibold text-[#b42318]">{error}</p> : null}
+      </Button>
+      {error ? <p className="text-sm font-semibold text-[var(--rp-correction)]">{error}</p> : null}
     </form>
   )
 }
@@ -165,16 +154,16 @@ function SignedInUser() {
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <span className="max-w-56 truncate rounded-md border border-[#dbe2dc] bg-[#f7faf8] px-3 py-2 text-sm font-semibold text-[#36433b]">
+      <span className="max-w-56 truncate rounded-[var(--rp-radius-control)] border border-[var(--rp-border)] bg-[var(--rp-surface)] px-3 py-2 text-sm font-semibold text-[var(--rp-text-soft)]">
         {displayName}
       </span>
-      <button
-        className="inline-flex items-center gap-2 rounded-md border border-[#dbe2dc] px-3 py-2 text-sm font-semibold hover:bg-[#f7faf8]"
+      <Button
         onClick={() => void signOut()}
+        variant="secondary"
       >
         <LogOut size={16} />
         Sign out
-      </button>
+      </Button>
     </div>
   )
 }

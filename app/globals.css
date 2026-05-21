@@ -2,15 +2,49 @@
 @import "katex/dist/katex.min.css";
 
 :root {
-  --background: #f6f8f5;
-  --foreground: #15201b;
-  --surface: #ffffff;
-  --muted: #647067;
-  --border: #dbe2dc;
-  --accent: #0f766e;
-  --accent-strong: #115e59;
-  --warning: #b45309;
-  --danger: #b91c1c;
+  --rp-paper: #f6f8f5;
+  --rp-paper-warm: #f7f2ea;
+  --rp-paper-soft: #fffaf2;
+  --rp-paper-grid: rgba(17, 17, 17, 0.028);
+  --rp-ink: #111111;
+  --rp-text: #15201b;
+  --rp-text-soft: #36433b;
+  --rp-muted: #647067;
+  --rp-muted-strong: #526059;
+  --rp-surface: #ffffff;
+  --rp-surface-warm: #fffaf2;
+  --rp-surface-subtle: #fbfcfa;
+  --rp-border: #dbe2dc;
+  --rp-border-strong: #a7b4aa;
+  --rp-primary: #53622f;
+  --rp-primary-strong: #3f4b24;
+  --rp-primary-soft: #eef2df;
+  --rp-primary-wash: #f6f8ed;
+  --rp-correction: #b91c1c;
+  --rp-correction-strong: #991b1b;
+  --rp-correction-soft: #fee2e2;
+  --rp-correction-wash: #fef2f2;
+  --rp-brass: #b78339;
+  --rp-brass-strong: #8a5c21;
+  --rp-brass-soft: #fff5df;
+  --rp-success: #047857;
+  --rp-success-soft: #ecfdf5;
+  --rp-danger: #b91c1c;
+  --rp-focus: #53622f;
+  --rp-shadow-ink: 5px 5px 0 #111111;
+  --rp-shadow-ink-soft: 4px 4px 0 rgba(17, 17, 17, 0.14);
+  --rp-shadow-correction: 4px 4px 0 #b91c1c;
+  --rp-radius-panel: 2px;
+  --rp-radius-control: 3px;
+  --background: var(--rp-paper);
+  --foreground: var(--rp-text);
+  --surface: var(--rp-surface);
+  --muted: var(--rp-muted);
+  --border: var(--rp-border);
+  --accent: var(--rp-primary);
+  --accent-strong: var(--rp-primary-strong);
+  --warning: var(--rp-brass);
+  --danger: var(--rp-danger);
 }
 
 * {
@@ -25,9 +59,13 @@ html {
 body {
   min-height: 100vh;
   margin: 0;
-  background: var(--background);
+  background:
+    linear-gradient(var(--rp-paper-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--rp-paper-grid) 1px, transparent 1px),
+    var(--rp-paper);
+  background-size: 32px 32px;
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: "Source Sans 3", "Source Sans Pro", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   letter-spacing: 0;
 }
 
@@ -47,18 +85,27 @@ button:disabled {
   opacity: 0.55;
 }
 
-a {
+a:not([class]) {
   color: inherit;
 }
 
+:focus-visible {
+  outline: 2px solid var(--rp-focus);
+  outline-offset: 2px;
+}
+
 ::selection {
-  background: #99f6e4;
-  color: #042f2e;
+  background: var(--rp-primary-soft);
+  color: var(--rp-primary-strong);
+}
+
+.font-display {
+  font-family: Fraunces, Georgia, "Times New Roman", ui-serif, serif;
 }
 
 .workbench-scrollbar {
   scrollbar-width: thin;
-  scrollbar-color: #a7b4aa transparent;
+  scrollbar-color: var(--rp-border-strong) transparent;
 }
 
 .redpen-toast-stack {

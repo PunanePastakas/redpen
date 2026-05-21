@@ -9,6 +9,8 @@ import type { Id } from "@/convex/_generated/dataModel"
 import { AITransparencyMarker } from "@/components/ai-transparency-marker"
 import { GlobalNavbar } from "@/components/global-navbar"
 import { MathText } from "@/components/math-text"
+import { Panel } from "@/components/ui/panel"
+import { StatusBadge } from "@/components/ui/status-badge"
 
 const convexEnabled = Boolean(process.env.NEXT_PUBLIC_CONVEX_URL)
 
@@ -30,10 +32,10 @@ function LiveStudentResult({ token, resultId }: { token: string; resultId: Id<"s
   if (result === undefined) {
     return (
       <StudentResultFrame>
-        <section className="mx-auto max-w-xl rounded-lg border border-[#dbe2dc] bg-white p-6 text-center shadow-sm">
+        <Panel className="mx-auto max-w-xl text-center" variant="paper">
           <h1 className="text-2xl font-semibold">Laen tulemust</h1>
-          <p className="mt-3 text-sm leading-6 text-[#647067]">Kontrollin jagatud lingi õigusi.</p>
-        </section>
+          <p className="mt-3 text-sm leading-6 text-[var(--rp-muted)]">Kontrollin jagatud lingi õigusi.</p>
+        </Panel>
       </StudentResultFrame>
     )
   }
@@ -50,20 +52,19 @@ function LiveStudentResult({ token, resultId }: { token: string; resultId: Id<"s
 
   return (
     <StudentResultFrame>
-      <section className="mx-auto max-w-3xl rounded-lg border border-[#dbe2dc] bg-white p-6 shadow-sm">
-        <div className="flex flex-wrap items-start justify-between gap-4 border-b border-[#dbe2dc] pb-5">
+      <Panel className="mx-auto max-w-3xl p-6" variant="paper">
+        <div className="flex flex-wrap items-start justify-between gap-4 border-b border-[var(--rp-border)] pb-5">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-normal text-[#0f766e]">RedPen jagatud tulemus</p>
-            <h1 className="mt-2 text-3xl font-semibold">{result.testTitle}</h1>
-            <p className="mt-2 text-sm text-[#647067]">
+            <p className="text-sm font-semibold uppercase tracking-normal text-[var(--rp-primary-strong)]">RedPen jagatud tulemus</p>
+            <h1 className="font-display mt-2 text-3xl font-semibold">{result.testTitle}</h1>
+            <p className="mt-2 text-sm text-[var(--rp-muted)]">
               Kinnitas {result.teacherName}
               {result.confirmedAt ? ` · ${result.confirmedAt}` : null}
             </p>
           </div>
-          <div className="inline-flex items-center gap-2 rounded-md border border-[#b7dfd8] bg-[#f0fdfa] px-3 py-2 text-sm font-medium text-[#115e59]">
-            <ShieldCheck aria-hidden="true" size={16} />
+          <StatusBadge icon={<ShieldCheck aria-hidden="true" size={16} />} tone="success">
             Õpetaja kinnitatud
-          </div>
+          </StatusBadge>
         </div>
 
         <div className="mt-5">
@@ -72,16 +73,16 @@ function LiveStudentResult({ token, resultId }: { token: string; resultId: Id<"s
 
         <div className="mt-5 grid gap-4 sm:grid-cols-2">
           {result.totalPoints !== undefined ? (
-            <div className="rounded-lg border border-[#dbe2dc] p-4">
-              <p className="text-sm text-[#647067]">Punktid</p>
+            <div className="rounded-[var(--rp-radius-panel)] border border-[var(--rp-border)] bg-[var(--rp-surface)] p-4">
+              <p className="text-sm text-[var(--rp-muted)]">Punktid</p>
               <p className="mt-1 text-2xl font-semibold">
                 {result.totalPoints} / {result.maxPoints ?? "-"}
               </p>
             </div>
           ) : null}
           {result.grade ? (
-            <div className="rounded-lg border border-[#dbe2dc] p-4">
-              <p className="text-sm text-[#647067]">Hinne</p>
+            <div className="rounded-[var(--rp-radius-panel)] border border-[var(--rp-border)] bg-[var(--rp-surface)] p-4">
+              <p className="text-sm text-[var(--rp-muted)]">Hinne</p>
               <p className="mt-1 text-2xl font-semibold">{result.grade}</p>
             </div>
           ) : null}
@@ -89,7 +90,7 @@ function LiveStudentResult({ token, resultId }: { token: string; resultId: Id<"s
 
         <section className="mt-6">
           <h2 className="text-xl font-semibold">Lõplik tagasiside</h2>
-          <div className="mt-3 whitespace-pre-line rounded-lg border border-[#dbe2dc] bg-[#fbfcfa] p-4 text-base leading-7">
+          <div className="mt-3 whitespace-pre-line rounded-[var(--rp-radius-panel)] border border-[var(--rp-border)] bg-[var(--rp-surface-subtle)] p-4 text-base leading-7">
             <MathText text={result.finalFeedback} />
           </div>
         </section>
@@ -99,10 +100,10 @@ function LiveStudentResult({ token, resultId }: { token: string; resultId: Id<"s
             <h2 className="text-xl font-semibold">Märkused tööle</h2>
             <ul className="mt-3 space-y-3">
               {annotations.map((annotation, index) => (
-                <li key={annotation.id ?? index} className="rounded-lg border border-[#dbe2dc] bg-white p-4">
+                <li key={annotation.id ?? index} className="rounded-[var(--rp-radius-panel)] border border-[var(--rp-border)] bg-[var(--rp-surface)] p-4">
                   <p className="font-medium">{annotation.label ?? "Märkus"}</p>
                   {annotation.semanticEvidence ? (
-                    <div className="mt-1 text-sm text-[#647067]">
+                    <div className="mt-1 text-sm text-[var(--rp-muted)]">
                       <MathText text={annotation.semanticEvidence} />
                     </div>
                   ) : null}
@@ -111,14 +112,14 @@ function LiveStudentResult({ token, resultId }: { token: string; resultId: Id<"s
             </ul>
           </section>
         ) : null}
-      </section>
+      </Panel>
     </StudentResultFrame>
   )
 }
 
 function StudentResultFrame({ children }: { children: ReactNode }) {
   return (
-    <main className="min-h-screen bg-[#f6f8f5]">
+    <main className="min-h-screen">
       <GlobalNavbar />
       <div className="px-4 py-8">{children}</div>
     </main>
@@ -127,15 +128,15 @@ function StudentResultFrame({ children }: { children: ReactNode }) {
 
 function DeniedState({ title, body }: { title: string; body: string }) {
   return (
-    <section className="mx-auto max-w-xl rounded-lg border border-[#dbe2dc] bg-white p-6 shadow-sm">
-      <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-full bg-red-50 text-red-700">
+    <Panel className="mx-auto max-w-xl p-6" variant="danger">
+      <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-[var(--rp-radius-control)] border border-[var(--rp-correction)] bg-[var(--rp-correction-soft)] text-[var(--rp-correction)]">
         <LockKeyhole aria-hidden="true" size={20} />
       </div>
       <h1 className="text-2xl font-semibold">{title}</h1>
-      <p className="mt-3 text-sm leading-6 text-[#647067]">{body}</p>
-      <Link className="mt-6 inline-flex rounded-md bg-[#0f766e] px-4 py-2 text-sm font-semibold text-white" href="/">
+      <p className="mt-3 text-sm leading-6 text-[var(--rp-muted)]">{body}</p>
+      <Link className="mt-6 inline-flex min-h-10 items-center rounded-[var(--rp-radius-control)] border border-[var(--rp-ink)] bg-[var(--rp-primary)] px-4 py-2 text-sm font-semibold text-white shadow-[3px_3px_0_var(--rp-ink)] hover:bg-[var(--rp-primary-strong)]" href="/">
         Tagasi RedPeni
       </Link>
-    </section>
+    </Panel>
   )
 }
