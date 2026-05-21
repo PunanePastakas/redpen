@@ -1,0 +1,16 @@
+.DS_Store
+node_modules
+.next
+out
+dist
+coverage
+*.tsbuildinfo
+
+.env
+.env.*
+!.env.example
+
+screenshots/*.png
+screenshots/*.jpg
+fixtures/private
+fixtures/real
