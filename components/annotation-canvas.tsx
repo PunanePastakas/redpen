@@ -38,17 +38,7 @@ export function AnnotationCanvas({
 
         return (
           <g key={plan.id} onClick={() => onSelectAnnotation?.(plan.id)} className="cursor-pointer">
-            {plan.shape === "underline" ? (
-              <line
-                x1={plan.targetBox.x}
-                y1={plan.targetBox.y + plan.targetBox.height}
-                x2={plan.targetBox.x + plan.targetBox.width}
-                y2={plan.targetBox.y + plan.targetBox.height}
-                stroke={stroke}
-                strokeWidth={strokeWidth}
-                strokeLinecap="round"
-              />
-            ) : plan.shape === "cross_out" ? (
+            {plan.shape === "cross_out" ? (
               <>
                 <line
                   x1={plan.targetBox.x}
@@ -69,44 +59,26 @@ export function AnnotationCanvas({
                   strokeLinecap="round"
                 />
               </>
+            ) : plan.shape === "check" ? (
+              <polyline
+                points={`${plan.targetBox.x + plan.targetBox.width * 0.15},${plan.targetBox.y + plan.targetBox.height * 0.55} ${plan.targetBox.x + plan.targetBox.width * 0.4},${plan.targetBox.y + plan.targetBox.height * 0.78} ${plan.targetBox.x + plan.targetBox.width * 0.85},${plan.targetBox.y + plan.targetBox.height * 0.22}`}
+                fill="none"
+                stroke={stroke}
+                strokeWidth={strokeWidth}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
             ) : (
-              <rect
-                x={plan.targetBox.x}
-                y={plan.targetBox.y}
-                width={plan.targetBox.width}
-                height={plan.targetBox.height}
-                rx={8}
+              <ellipse
+                cx={plan.targetBox.x + plan.targetBox.width / 2}
+                cy={plan.targetBox.y + plan.targetBox.height / 2}
+                rx={plan.targetBox.width / 2}
+                ry={plan.targetBox.height / 2}
                 fill="none"
                 stroke={stroke}
                 strokeWidth={strokeWidth}
               />
             )}
-
-            {plan.labelBox ? (
-              <g>
-                <line
-                  x1={plan.targetBox.x + plan.targetBox.width}
-                  y1={plan.targetBox.y}
-                  x2={plan.labelBox.x}
-                  y2={plan.labelBox.y + plan.labelBox.height / 2}
-                  stroke={stroke}
-                  strokeWidth={2}
-                />
-                <rect
-                  x={plan.labelBox.x}
-                  y={plan.labelBox.y}
-                  width={plan.labelBox.width}
-                  height={plan.labelBox.height}
-                  rx={5}
-                  fill="#fff7ed"
-                  stroke={stroke}
-                  strokeWidth={2}
-                />
-                <text x={plan.labelBox.x + 10} y={plan.labelBox.y + 20} fill="#991b1b" fontSize="16" fontWeight={700}>
-                  {plan.label}
-                </text>
-              </g>
-            ) : null}
           </g>
         )
       })}

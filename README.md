@@ -23,9 +23,10 @@ implementation plan:
 - Convex schema and function surface for teacher-owned users, students, tests,
   uploads, student work, AI attempts, task reviews, confirmed results, invite
   tokens, audit logs, and retention events.
-- RedPen-specific AI output schemas, prompt builders, provider-neutral adapter
-  types, Convex-side OpenAI Responses analysis with stored upload inputs, and an
-  OpenAI adapter that sets `store: false`.
+- RedPen-specific `GradingAnalysis` schemas, prompt builders, provider-neutral
+  adapter types, Convex-side OpenAI Responses analysis with stored upload
+  inputs, KaTeX-safe AI text rendering, and an OpenAI adapter that sets
+  `store: false`.
 - Guardrail scripts and tests for provider/region config, synthetic fixtures,
   token-scoped student access, retention policy, name matching, annotation
   geometry, and AI contracts.

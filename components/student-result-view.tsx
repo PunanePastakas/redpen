@@ -8,6 +8,7 @@ import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
 import { AITransparencyMarker } from "@/components/ai-transparency-marker"
 import { GlobalNavbar } from "@/components/global-navbar"
+import { MathText } from "@/components/math-text"
 
 const convexEnabled = Boolean(process.env.NEXT_PUBLIC_CONVEX_URL)
 
@@ -88,9 +89,9 @@ function LiveStudentResult({ token, resultId }: { token: string; resultId: Id<"s
 
         <section className="mt-6">
           <h2 className="text-xl font-semibold">Lõplik tagasiside</h2>
-          <p className="mt-3 whitespace-pre-line rounded-lg border border-[#dbe2dc] bg-[#fbfcfa] p-4 text-base leading-7">
-            {result.finalFeedback}
-          </p>
+          <div className="mt-3 whitespace-pre-line rounded-lg border border-[#dbe2dc] bg-[#fbfcfa] p-4 text-base leading-7">
+            <MathText text={result.finalFeedback} />
+          </div>
         </section>
 
         {annotations.length ? (
@@ -100,7 +101,11 @@ function LiveStudentResult({ token, resultId }: { token: string; resultId: Id<"s
               {annotations.map((annotation, index) => (
                 <li key={annotation.id ?? index} className="rounded-lg border border-[#dbe2dc] bg-white p-4">
                   <p className="font-medium">{annotation.label ?? "Märkus"}</p>
-                  {annotation.semanticEvidence ? <p className="mt-1 text-sm text-[#647067]">{annotation.semanticEvidence}</p> : null}
+                  {annotation.semanticEvidence ? (
+                    <div className="mt-1 text-sm text-[#647067]">
+                      <MathText text={annotation.semanticEvidence} />
+                    </div>
+                  ) : null}
                 </li>
               ))}
             </ul>

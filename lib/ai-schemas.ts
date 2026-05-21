@@ -1,10 +1,8 @@
 import { z } from "zod"
 
-export const REDPEN_AI_SCHEMA_VERSION = "2026-05-20.redpen-analysis.v1"
+export const GRADING_ANALYSIS_SCHEMA_VERSION = "2026-05-22.grading-analysis.v3"
 
-export const LanguageCodeSchema = z.enum(["et", "en", "unknown"])
 export const FeedbackLanguageSchema = z.enum(["et", "en"])
-export const ConfidenceSchema = z.number().min(0).max(1)
 
 export const NormalizedBoxSchema = z.object({
   x: z.number().min(0).max(1),
@@ -15,57 +13,23 @@ export const NormalizedBoxSchema = z.object({
 
 export const PageRefSchema = z.object({
   pageNumber: z.number().int().positive(),
-  lineId: z.string().optional(),
-  snippet: z.string().optional(),
-  box: NormalizedBoxSchema.optional()
+  lineId: z.string().nullable(),
+  snippet: z.string().nullable(),
+  box: NormalizedBoxSchema.nullable()
 })
 
-export const LanguageMetadataSchema = z.object({
-  detectedInputLanguage: LanguageCodeSchema,
-  requestedFeedbackLanguage: FeedbackLanguageSchema,
-  confidence: ConfidenceSchema,
-  notes: z.string().optional()
-})
-
-export const TranscriptionLineSchema = z.object({
-  lineId: z.string(),
-  rawText: z.string(),
-  normalizedMath: z.string().nullable(),
-  confidence: ConfidenceSchema,
-  pageRef: PageRefSchema
-})
-
-export const PageTranscriptionSchema = z.object({
-  pageNumber: z.number().int().positive(),
-  pageLabel: z.string().optional(),
-  overallConfidence: ConfidenceSchema,
-  lines: z.array(TranscriptionLineSchema),
-  missingOrUnclearRegions: z.array(PageRefSchema)
-})
-
-export const StudentIdentityDraftSchema = z.object({
-  detectedName: z.string().nullable(),
-  evidence: z.array(PageRefSchema),
-  confidence: ConfidenceSchema,
-  teacherMustConfirm: z.boolean()
-})
-
-export const WorkMapTaskSchema = z.object({
+export const TaskTranscriptionSchema = z.object({
   stableKey: z.string(),
   label: z.string(),
   likelyTaskNumber: z.string().nullable(),
+  text: z.string(),
   pageRefs: z.array(PageRefSchema),
-  semanticEvidence: z.array(z.string()),
-  approximateCoordinates: z.array(NormalizedBoxSchema),
-  uncertainty: z.string().nullable()
+  missingOrUnclearRegions: z.array(PageRefSchema)
 })
 
-export const ContextInterpretationSchema = z.object({
-  usedContext: z.array(z.string()),
-  missingContext: z.array(z.string()),
-  ambiguousContext: z.array(z.string()),
-  rubricPointsClear: z.boolean(),
-  summary: z.string()
+export const StudentNameDraftSchema = z.object({
+  detectedName: z.string().nullable(),
+  evidence: z.array(PageRefSchema)
 })
 
 export const MistakeTypeSchema = z.enum([
@@ -81,90 +45,81 @@ export const MistakeTypeSchema = z.enum([
   "unclear"
 ])
 
-export const AnnotationTargetSchema = z.object({
-  id: z.string(),
-  taskStableKey: z.string().nullable(),
-  shape: z.enum(["circle", "underline", "cross_out", "arrow_note", "check", "freehand"]),
-  label: z.string(),
-  semanticEvidence: z.string(),
-  pageRef: PageRefSchema,
-  confidence: ConfidenceSchema,
-  selfCheck: z.object({
-    targetOnStudentWork: z.boolean(),
-    targetMatchesFeedback: z.boolean(),
-    labelClearOfTargetMath: z.boolean(),
-    boxInsidePage: z.boolean()
-  }),
-  rejectionReason: z.string().nullable()
-})
+export const RubricPointSourceSchema = z.enum(["guidance_document", "teacher_notes", "not_found"])
 
-export const TaskDraftSchema = z.object({
+export const TaskScoreBandSchema = z.enum(["full_points", "minor_mistakes", "major_mistakes", "not_attempted", "unclear"])
+
+export const GradingTaskSchema = z.object({
   stableKey: z.string(),
   label: z.string(),
+  likelyTaskNumber: z.string().nullable(),
   sourceRefs: z.array(PageRefSchema),
+  taskTranscript: z.string(),
+  rubric: z.object({
+    maxPoints: z.number().nullable(),
+    source: RubricPointSourceSchema,
+    evidence: z.array(PageRefSchema)
+  }),
+  gradingRationale: z.string(),
   mistakeTypes: z.array(MistakeTypeSchema),
-  processAnalysis: z.string(),
+  scoreBand: TaskScoreBandSchema,
   suggestedPoints: z.object({
     value: z.number().nullable(),
     max: z.number().nullable(),
-    onlyIfRubricClear: z.boolean(),
-    confidence: ConfidenceSchema
+    onlyIfRubricClear: z.boolean()
   }),
   feedbackDraft: z.string(),
-  feedbackLanguage: FeedbackLanguageSchema,
   teacherReviewFlags: z.array(z.string())
 })
 
-export const OverallDraftSchema = z.object({
-  summaryFeedback: z.string(),
-  suggestedTotalPoints: z.number().nullable(),
-  maxPoints: z.number().nullable(),
-  suggestedGrade: z.string().nullable(),
-  confidence: ConfidenceSchema
+export const AnnotationTargetSchema = z.object({
+  id: z.string(),
+  taskStableKey: z.string().nullable(),
+  shape: z.enum(["circle", "check", "cross_out"]),
+  pageRef: PageRefSchema,
+  semanticEvidence: z.string(),
+  rejectionReason: z.string().nullable()
 })
 
 export const ReviewFlagSchema = z.enum([
   "unclear_handwriting",
   "missing_page",
-  "mismatched_rubric",
-  "language_uncertainty",
+  "missing_rubric",
+  "guide_mismatch",
   "multiple_valid_solution_paths",
   "safety_privacy_warning",
   "student_name_uncertain",
-  "points_uncertain"
+  "points_uncertain",
+  "unclear_transcription"
 ])
 
-export const RedPenAnalysisSchema = z.object({
-  schemaVersion: z.literal(REDPEN_AI_SCHEMA_VERSION),
-  language: LanguageMetadataSchema,
+export const GradingAnalysisSchema = z.object({
+  schemaVersion: z.literal(GRADING_ANALYSIS_SCHEMA_VERSION),
+  studentName: StudentNameDraftSchema,
   transcription: z.object({
-    pages: z.array(PageTranscriptionSchema),
-    overallConfidence: ConfidenceSchema
+    tasks: z.array(TaskTranscriptionSchema),
+    unassignedText: z.string().nullable()
   }),
-  studentIdentityDraft: StudentIdentityDraftSchema,
-  workMap: z.object({
-    tasks: z.array(WorkMapTaskSchema),
-    uncertainty: z.array(z.string())
-  }),
-  contextInterpretation: ContextInterpretationSchema,
-  taskDrafts: z.array(TaskDraftSchema),
+  tasks: z.array(GradingTaskSchema),
   annotationTargets: z.array(AnnotationTargetSchema),
-  overallDraft: OverallDraftSchema,
+  generalFeedback: z.string(),
+  suggestedTotalPoints: z.number().nullable(),
+  maxPoints: z.number().nullable(),
+  suggestedGrade: z.string().nullable(),
   reviewFlags: z.array(ReviewFlagSchema)
 })
 
-export type LanguageCode = z.infer<typeof LanguageCodeSchema>
 export type FeedbackLanguage = z.infer<typeof FeedbackLanguageSchema>
 export type NormalizedBox = z.infer<typeof NormalizedBoxSchema>
 export type PageRef = z.infer<typeof PageRefSchema>
 export type AnnotationTarget = z.infer<typeof AnnotationTargetSchema>
-export type TaskDraft = z.infer<typeof TaskDraftSchema>
-export type RedPenAnalysis = z.infer<typeof RedPenAnalysisSchema>
+export type GradingTask = z.infer<typeof GradingTaskSchema>
+export type GradingAnalysis = z.infer<typeof GradingAnalysisSchema>
 
-export const RedPenAnalysisJsonSchema = z.toJSONSchema(RedPenAnalysisSchema, {
+export const GradingAnalysisJsonSchema = z.toJSONSchema(GradingAnalysisSchema, {
   target: "draft-7"
 })
 
-export function parseRedPenAnalysis(value: unknown): RedPenAnalysis {
-  return RedPenAnalysisSchema.parse(value)
+export function parseGradingAnalysis(value: unknown): GradingAnalysis {
+  return GradingAnalysisSchema.parse(value)
 }

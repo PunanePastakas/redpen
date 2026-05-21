@@ -1,5 +1,6 @@
 import OpenAI from "openai"
-import { RedPenAnalysisJsonSchema, RedPenAnalysisSchema } from "@/lib/ai-schemas"
+import { GradingAnalysisJsonSchema, GradingAnalysisSchema } from "@/lib/ai-schemas"
+import { normalizeGradingAnalysisMath } from "@/lib/grading-analysis-normalization"
 import { buildAnalysisPrompt, buildSystemPrompt } from "@/lib/ai/prompts"
 import {
   AnalyzeDocumentRequest,
@@ -75,9 +76,9 @@ export class OpenAIRedPenProvider implements RedPenAIProvider {
       text: {
         format: {
           type: "json_schema",
-          name: "redpen_analysis",
+          name: "grading_analysis",
           strict: true,
-          schema: RedPenAnalysisJsonSchema
+          schema: GradingAnalysisJsonSchema
         }
       }
     } as OpenAI.Responses.ResponseCreateParamsNonStreaming)
@@ -87,7 +88,7 @@ export class OpenAIRedPenProvider implements RedPenAIProvider {
       throw new Error("OpenAI response did not include output_text")
     }
 
-    const parsed = RedPenAnalysisSchema.parse(JSON.parse(rawText))
+    const parsed = normalizeGradingAnalysisMath(GradingAnalysisSchema.parse(JSON.parse(rawText)))
     const outputHash = await hashAnalysisOutput(parsed)
 
     return {

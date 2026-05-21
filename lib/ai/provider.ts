@@ -1,6 +1,6 @@
-import type { FeedbackLanguage, RedPenAnalysis } from "@/lib/ai-schemas"
-import { REDPEN_AI_SCHEMA_VERSION } from "@/lib/ai-schemas"
-import { REDPEN_ANALYSIS_PROMPT_VERSION } from "@/lib/ai/prompts"
+import type { FeedbackLanguage, GradingAnalysis } from "@/lib/ai-schemas"
+import { GRADING_ANALYSIS_SCHEMA_VERSION } from "@/lib/ai-schemas"
+import { GRADING_ANALYSIS_PROMPT_VERSION } from "@/lib/ai/prompts"
 import { sha256Hex } from "@/lib/hashing"
 
 export type AIProviderName = "openai"
@@ -38,7 +38,7 @@ export type AIProviderMetadata = {
 }
 
 export type AnalyzeDocumentResponse = {
-  analysis: RedPenAnalysis
+  analysis: GradingAnalysis
   metadata: AIProviderMetadata
   inputHash: string
   outputHash: string
@@ -70,7 +70,7 @@ export async function hashAnalysisInput(request: AnalyzeDocumentRequest) {
   )
 }
 
-export async function hashAnalysisOutput(analysis: RedPenAnalysis) {
+export async function hashAnalysisOutput(analysis: GradingAnalysis) {
   return sha256Hex(JSON.stringify(analysis))
 }
 
@@ -88,8 +88,8 @@ export function makeProviderMetadata(input: {
     dataResidencyRegion: input.dataResidencyRegion ?? null,
     model: input.model,
     apiVersion: input.apiVersion ?? null,
-    promptVersion: REDPEN_ANALYSIS_PROMPT_VERSION,
-    schemaVersion: REDPEN_AI_SCHEMA_VERSION,
+    promptVersion: GRADING_ANALYSIS_PROMPT_VERSION,
+    schemaVersion: GRADING_ANALYSIS_SCHEMA_VERSION,
     storeResponses: false
   }
 }

@@ -74,3 +74,20 @@ export const listByWork = query({
     return await Promise.all(uploads.map(async (upload) => ({ ...upload, url: await ctx.storage.getUrl(upload.storageId) })))
   }
 })
+
+export const countGradingContextByTests = query({
+  args: { testIds: v.array(v.id("tests")) },
+  handler: async (ctx, args) => {
+    const teacher = await requireTeacher(ctx)
+    await Promise.all(args.testIds.map((testId) => requireOwnedTest(ctx, teacher._id, testId)))
+    const uploads = await ctx.db
+      .query("uploadedFiles")
+      .withIndex("by_teacherId", (q) => q.eq("teacherId", teacher._id))
+      .collect()
+
+    return args.testIds.map((testId) => ({
+      testId,
+      count: uploads.filter((upload) => upload.testId === testId && upload.role === "grading_context").length
+    }))
+  }
+})

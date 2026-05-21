@@ -72,9 +72,11 @@ The MVP uses a simplified product model: one teacher owns their account, tests, 
 ### F5: AI Analysis
 
 - [ ] System can send whole uncropped work images/PDF pages, including visible names, to the EU-resident LLM path for the prototype when this is the simplest reliable approach.
-- [ ] System performs full-document transcription before optional crop refinement.
-- [ ] AI output includes detected language, transcription, task/work map, evidence references, likely mistake types, rubric/context interpretation, suggested points, draft feedback, annotation targets, and review flags.
-- [ ] AI output supports Estonian and English feedback according to the teacher's selected language.
+- [ ] System analyzes one student's complete uploaded work plus optional grading context in one LLM request.
+- [ ] AI output uses the structured `GradingAnalysis` contract: visible student name, full transcription, task-wise transcript split, evidence references, likely mistake types, guidance-motivated grading rationale, suggested points, draft feedback, minimal annotation targets, and review flags.
+- [ ] AI output does not include detected language, requested feedback language, language notes, language confidence, or model-produced feedback-language fields.
+- [ ] Teacher-selected feedback language is app-owned request/persistence metadata and can guide Estonian or English feedback drafts.
+- [ ] AI-generated math uses `\(...\)` / `\[...\]` spans inside task-wise transcript and feedback text so the UI can render it with KaTeX.
 - [ ] Cropping is optional and used only for annotation precision, unclear handwriting, cost control, partial retry, or teacher-requested re-analysis.
 - [ ] AI attempts are logged with model/deployment, region mode, prompt/schema version, purpose, input hashes/file refs, timestamps, status, and error.
 - [ ] AI calls use Azure OpenAI / Foundry Models EU Data Zone or single EU region in production.
@@ -82,7 +84,7 @@ The MVP uses a simplified product model: one teacher owns their account, tests, 
 ### F6: Teacher Review
 
 - [ ] Teacher can review full-work drafts and task-level drafts.
-- [ ] Teacher can inspect original pages, transcription, work map, AI evidence, context interpretation, suggested points, and annotation draft.
+- [ ] Teacher can inspect original pages, transcription, task-wise transcript excerpts, AI evidence, grading rationale, suggested points, and annotation draft.
 - [ ] Teacher can edit task boundaries, split/merge tasks, adjust feedback, change points, and edit annotations.
 - [ ] Teacher can accept, edit, reject, or manually replace each AI-assisted draft.
 - [ ] System records teacher decision and review time.
@@ -136,9 +138,10 @@ The MVP uses a simplified product model: one teacher owns their account, tests, 
 
 - Teacher median review time per student result is measured.
 - At least 70% of AI draft feedback is accepted with no or minor teacher edits in the first teacher-reviewed benchmark set.
-- At least 80% of generated task/work maps are usable without major restructuring in the first benchmark fixture set.
+- At least 80% of generated task splits are usable without major restructuring in the first benchmark fixture set.
 - 100% of shared student feedback has a teacher confirmation record.
-- 100% of AI drafts include input/output language metadata and uncertainty flags where relevant.
+- 100% of AI drafts include review flags where transcription, rubric fit, or point suggestions are uncertain.
+- 100% of AI-generated math display strings render through the shared KaTeX-safe path or fall back without crashing.
 - 0 production AI calls use a global/non-EU deployment configuration.
 - 0 raw student work files remain after the configured retention deadline.
 

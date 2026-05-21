@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "katex/dist/katex.min.css";
 
 :root {
   --background: #f6f8f5;
@@ -58,4 +59,36 @@ a {
 .workbench-scrollbar {
   scrollbar-width: thin;
   scrollbar-color: #a7b4aa transparent;
+}
+
+.redpen-toast-stack {
+  position: fixed;
+  right: max(1rem, env(safe-area-inset-right));
+  bottom: max(1rem, env(safe-area-inset-bottom));
+  z-index: 60;
+  display: grid;
+  width: min(26rem, calc(100vw - 2rem));
+  gap: 0.5rem;
+  pointer-events: none;
+}
+
+.redpen-toast {
+  animation: redpen-toast-lifecycle 4.6s ease forwards;
+  transform-origin: bottom right;
+}
+
+@keyframes redpen-toast-lifecycle {
+  0% {
+    opacity: 0;
+    transform: translate3d(1rem, 0.75rem, 0) scale(0.98);
+  }
+  10%,
+  82% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(1rem, 0.75rem, 0) scale(0.98);
+  }
 }

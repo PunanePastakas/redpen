@@ -33,8 +33,8 @@ The product should support Estonian and English from the beginning:
 - UI language: Estonian and English, with Estonian as the initial default for the Estonian pilot.
 - Teacher inputs: grading instructions may be in Estonian or English.
 - Student work: handwritten answers may include Estonian, English, mathematical notation, or a mixture.
-- AI output: the teacher can choose feedback language per test, with Estonian and English as supported MVP targets.
-- Internal schemas: store language metadata on tests, instructions, student work, AI attempts, and final feedback so multilingual behavior is auditable.
+- AI output: the teacher can choose feedback language per test, but that choice is app-owned request context rather than a model-produced output field.
+- Internal schemas: store teacher-selected language metadata on tests and final feedback where useful. The MVP `GradingAnalysis` output does not include detected language, requested feedback language, language notes, or language confidence.
 
 ## Source Repository Findings
 
@@ -227,7 +227,7 @@ flowchart LR
 
   subgraph ai["Azure OpenAI EU"]
     model["Multimodal model<br/>transcribe, reason, draft"]
-    draft["Structured AI draft<br/>evidence + uncertainty"]
+    draft["Structured GradingAnalysis<br/>transcript + task drafts"]
   end
 
   subgraph output["Review + persisted output"]
@@ -261,8 +261,8 @@ flowchart LR
 2. Teacher creates or opens a test.
 3. Teacher optionally uploads a grading instruction (`hindamisjuhis`) as an image, PDF, or text. The instruction is useful context, not a hard prerequisite.
 4. Teacher uploads student work images or PDFs.
-5. The system transcribes each uploaded work, detects the student's name if visible, proposes a match to a teacher-owned student entity, and builds a flexible work map: pages, visible tasks, likely task boundaries, solution snippets, and evidence references.
-6. The system uses the available context to propose task-level feedback, point suggestions, and annotation targets. The context may include the instruction document, teacher notes, answer key, curriculum references, previous confirmed examples, or simply the full student work.
+5. The system sends each uploaded student work through one whole-work analysis call, detects the student's visible name if present, transcribes the work, splits it into likely tasks, and returns evidence references.
+6. The system uses the available context to propose task-level feedback, point suggestions, review flags, and sparse annotation targets. The context may include the instruction document, teacher notes, answer key, curriculum references, previous confirmed examples, or simply the full student work.
 7. Teacher reviews the AI draft. If task boundaries are useful, the teacher can review task by task. If the instruction and student work do not align cleanly, the teacher can review a more holistic result and split or merge tasks manually.
 8. Teacher edits or confirms feedback, points, and annotations.
 9. Teacher confirms each student's overall result and optional grade.
@@ -270,7 +270,7 @@ flowchart LR
 
 ## AI Processing Pipeline
 
-The first MVP should use the most straightforward robust multimodal pipeline. It does not need to crop first.
+The first MVP should use the most straightforward robust multimodal pipeline: one analysis request per student's complete uploaded work, with the optional `hindamisjuhis` / grading guide attached as context. It does not need to crop first and it should not send a whole class of students in one model call.
 
 ```mermaid
 sequenceDiagram
@@ -283,11 +283,11 @@ sequenceDiagram
   T->>UI: Upload optional instruction and student work
   UI->>C: Authenticated test/upload request
   C->>S: Store original files with hashes
-  C->>A: Full-document transcription and interpretation
-  A-->>C: Name, language, page transcription, visible task/work map
-  C->>A: Grading draft using available context
-  A-->>C: Structured feedback, point suggestions, evidence refs, annotation targets
-  C-->>UI: Draft result with flags and audit metadata
+  C->>S: Resolve previously uploaded guide/work refs
+  C->>A: One Responses call for one student's work plus context
+  A-->>C: Structured GradingAnalysis
+  C->>C: Validate schema, validate math spans, record attempt
+  C-->>UI: Task-wise draft reviews with flags and audit metadata
   T->>UI: Edit/confirm task model, feedback, points, annotations
   UI->>C: Persist teacher decision
   C->>C: Append audit log
@@ -296,14 +296,14 @@ sequenceDiagram
 Recommended pipeline stages:
 
 - Intake: store the original instruction and student work files once, with hashes and metadata.
-- Full-document transcription: ask the multimodal model to read the complete work first, including visible student name, page order, language, mathematical notation, and uncertainty.
-- Work mapping: derive a flexible structure from the transcription: likely tasks, answer regions, reasoning snippets, and page/coordinate references. This may be approximate.
-- Context assembly: combine the work map with any available instruction document, teacher free-text context, answer key, rubric, or curriculum background.
-- Grading draft: produce structured feedback, suggested points, evidence, teacher review flags, and annotation target suggestions.
+- Context assembly: combine all `grading_context` uploads for the test with all `student_work` uploads for one `studentWorks` record. The grading context is labeled as guide/rubric/answer-key context, never as student work.
+- Whole-work analysis: ask the multimodal model to transcribe the complete work, identify the visible student name, split the transcript into likely tasks, draft grading feedback and point suggestions, and suggest minimal mark-only annotations.
+- Structured validation: parse the response as `GradingAnalysis`, validate KaTeX math spans in task-wise transcript and feedback text, record the attempt, and leave malformed outputs retryable.
+- Task-wise review: persist one task review row per proposed task so the teacher can confirm, edit, reject, split, or replace the draft.
 - Optional crop refinement: only crop or re-send smaller regions when needed for annotation precision, unreadable handwriting, cost reduction, retrying a failed section, or teacher-requested re-analysis.
 - Teacher confirmation: persist the teacher's final decision separately from the AI draft.
 
-This pipeline accepts that a `hindamisjuhis` may mirror the student work structure, differ from it, cover only part of it, or be absent. The LLM should be prompted to use the instruction as additional grading context, state when the instruction is ambiguous, and avoid pretending that missing rubric details are certain.
+This pipeline accepts that a `hindamisjuhis` may mirror the student work structure, differ from it, cover only part of it, or be absent. The LLM should be prompted to use the instruction as additional grading context, add concrete review flags when the instruction is ambiguous, and avoid pretending that missing rubric details are certain.
 
 ## Data Minimization Position
 
@@ -325,7 +325,9 @@ This simplifies the system model: RedPen does not need a mandatory pre-LLM anony
 - Task IDs should be stable once the teacher confirms them, but the model can propose task splits differently per work until teacher review.
 - Full-page transcription is the base layer. Crops are derived artifacts, useful for UI and re-analysis but not required as the first processing step.
 - Annotation targets should reference both semantic evidence ("line where sign changed") and approximate geometry when available.
-- The model should explicitly mark uncertainty: unclear handwriting, incomplete page, missing rubric, mismatched instruction, multiple plausible solution paths, or language uncertainty.
+- The model should explicitly mark uncertainty through review flags such as unclear handwriting, incomplete page, missing rubric, mismatched instruction, multiple plausible solution paths, uncertain points, or uncertain transcription.
+- The model output should not include language metadata or confidence scores. Teacher-selected feedback language is request context owned by the app.
+- Mathematical output shown to teachers or students must be KaTeX-safe: task-wise transcript and display text use `\(...\)` / `\[...\]`, and invalid math falls back safely.
 - Prompt contracts should be versioned because changes to model behavior affect grading behavior.
 
 ## EU Data Residency Position
@@ -363,7 +365,7 @@ Implementation note: add a repository-root `LICENSE` file with the AGPL-3.0-only
 - Retention: raw uploads and derived crops have a short retention policy after teacher confirmation/share; teacher-confirmed feedback remains according to the teacher's configured retention policy and applicable law.
 - Auditability: log AI attempts, teacher edits, confirmations, shares, exports, deletions, access checks, and failed authorization checks.
 - No model training: disable provider-side training and do not use production student data for fine-tuning unless a separate, explicit, documented training consent and anonymization flow exists.
-- Multilingual reliability: log input/output language and require teacher-visible uncertainty when the model is unsure about language, terminology, or mathematical notation.
+- Multilingual reliability: store the teacher-selected feedback language as app metadata and require teacher-visible review flags when the model is unsure about terminology, transcription, mathematical notation, or rubric fit.
 
 ## References
 

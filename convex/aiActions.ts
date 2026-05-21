@@ -3,8 +3,9 @@ import type { FunctionReference } from "convex/server"
 import { action, internalAction, internalMutation, type ActionCtx } from "./_generated/server"
 import { internal } from "./_generated/api"
 import type { Doc, Id } from "./_generated/dataModel"
-import { REDPEN_AI_SCHEMA_VERSION, RedPenAnalysisJsonSchema, RedPenAnalysisSchema, type RedPenAnalysis } from "../lib/ai-schemas"
-import { buildAnalysisPrompt, buildSystemPrompt, REDPEN_ANALYSIS_PROMPT_VERSION } from "../lib/ai/prompts"
+import { GRADING_ANALYSIS_SCHEMA_VERSION, GradingAnalysisJsonSchema, GradingAnalysisSchema, type GradingAnalysis } from "../lib/ai-schemas"
+import { buildAnalysisPrompt, buildSystemPrompt, GRADING_ANALYSIS_PROMPT_VERSION } from "../lib/ai/prompts"
+import { normalizeGradingAnalysisMath } from "../lib/grading-analysis-normalization"
 import { sha256Hex } from "./crypto"
 import { syntheticAnalysisForConvex } from "./syntheticAnalysis"
 import { requireIdentity } from "./auth"
@@ -66,7 +67,7 @@ const aiActionRefs = internal.aiActions as unknown as {
 
 export const analyzeWork = action({
   args: { workId: v.id("studentWorks") },
-  handler: async (ctx, args): Promise<RedPenAnalysis> => {
+  handler: async (ctx, args): Promise<GradingAnalysis> => {
     await requireIdentity(ctx)
     return await analyzeWorkNow(ctx, args.workId)
   }
@@ -74,12 +75,12 @@ export const analyzeWork = action({
 
 export const analyzeWorkInternal = internalAction({
   args: { workId: v.id("studentWorks") },
-  handler: async (ctx, args): Promise<RedPenAnalysis> => {
+  handler: async (ctx, args): Promise<GradingAnalysis> => {
     return await analyzeWorkNow(ctx, args.workId)
   }
 })
 
-async function analyzeWorkNow(ctx: ActionCtx, workId: Id<"studentWorks">): Promise<RedPenAnalysis> {
+async function analyzeWorkNow(ctx: ActionCtx, workId: Id<"studentWorks">): Promise<GradingAnalysis> {
   const { work, test, uploads, contextUploads } = (await ctx.runQuery(internal.works.getForAi, { workId })) as AiInputData
   const workUploads = uploads.filter((upload) => upload.role === "student_work")
   const gradingContextUploads = contextUploads.filter((upload) => upload.role === "grading_context")
@@ -93,8 +94,8 @@ async function analyzeWorkNow(ctx: ActionCtx, workId: Id<"studentWorks">): Promi
       testId: work.testId,
       model,
       providerMode,
-      promptVersion: REDPEN_ANALYSIS_PROMPT_VERSION,
-      schemaVersion: REDPEN_AI_SCHEMA_VERSION,
+      promptVersion: GRADING_ANALYSIS_PROMPT_VERSION,
+      schemaVersion: GRADING_ANALYSIS_SCHEMA_VERSION,
       inputRefs
     })
   )
@@ -107,8 +108,8 @@ async function analyzeWorkNow(ctx: ActionCtx, workId: Id<"studentWorks">): Promi
     dataControlMode: providerMode === "mock" ? "synthetic_fixture_only" : "store_false",
     dataResidencyRegion: endpoint === "https://eu.api.openai.com" ? "europe" : undefined,
     model,
-    promptVersion: REDPEN_ANALYSIS_PROMPT_VERSION,
-    schemaVersion: REDPEN_AI_SCHEMA_VERSION,
+    promptVersion: GRADING_ANALYSIS_PROMPT_VERSION,
+    schemaVersion: GRADING_ANALYSIS_SCHEMA_VERSION,
     purpose: "full_document_analysis",
     inputHash
   })) as Id<"aiAttempts">
@@ -118,9 +119,9 @@ async function analyzeWorkNow(ctx: ActionCtx, workId: Id<"studentWorks">): Promi
       throw new Error("No student work uploads are attached to this work")
     }
 
-    const analysis: RedPenAnalysis =
+    const analysis: GradingAnalysis =
       providerMode === "mock"
-        ? RedPenAnalysisSchema.parse(syntheticAnalysisForConvex(test.defaultFeedbackLanguage))
+        ? normalizeGradingAnalysisMath(GradingAnalysisSchema.parse(syntheticAnalysisForConvex(test.defaultFeedbackLanguage)))
         : await callOpenAIResponses(ctx, {
             endpoint,
             model,
@@ -135,12 +136,13 @@ async function analyzeWorkNow(ctx: ActionCtx, workId: Id<"studentWorks">): Promi
     await ctx.runMutation(internal.works.applyAnalysisDraft, {
       workId: work._id,
       fullTranscription: analysis.transcription,
-      workMap: analysis.workMap,
-      studentIdentityDraft: analysis.studentIdentityDraft,
-      contextInterpretation: analysis.contextInterpretation,
-      overallDraft: analysis.overallDraft,
+      studentName: analysis.studentName,
+      generalFeedback: analysis.generalFeedback,
+      suggestedTotalPoints: analysis.suggestedTotalPoints,
+      maxPoints: analysis.maxPoints,
+      suggestedGrade: analysis.suggestedGrade,
       reviewFlags: analysis.reviewFlags,
-      taskDrafts: analysis.taskDrafts,
+      tasks: analysis.tasks,
       annotationTargets: analysis.annotationTargets
     })
 
@@ -170,7 +172,7 @@ async function callOpenAIResponses(
     workUploads: UploadForAi[]
     gradingContextUploads: UploadForAi[]
   }
-): Promise<RedPenAnalysis> {
+): Promise<GradingAnalysis> {
   if (!input.apiKey) {
     throw new Error("OPENAI_API_KEY is not configured in Convex backend environment")
   }
@@ -220,9 +222,9 @@ async function callOpenAIResponses(
       text: {
         format: {
           type: "json_schema",
-          name: "redpen_analysis",
+          name: "grading_analysis",
           strict: true,
-          schema: RedPenAnalysisJsonSchema
+          schema: GradingAnalysisJsonSchema
         }
       }
     })
@@ -239,7 +241,7 @@ async function callOpenAIResponses(
     throw new Error("OpenAI response did not include output_text")
   }
 
-  return RedPenAnalysisSchema.parse(JSON.parse(rawText))
+  return normalizeGradingAnalysisMath(GradingAnalysisSchema.parse(JSON.parse(rawText)))
 }
 
 async function appendUploadContent(ctx: ActionCtx, content: ResponseContentItem[], upload: UploadForAi, label: string) {

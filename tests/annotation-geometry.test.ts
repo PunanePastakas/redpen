@@ -7,11 +7,14 @@ describe("annotation geometry", () => {
     const plan = annotationTargetToRenderPlan(syntheticAnnotationTargets[0]!, { width: 720, height: 930 })
     expect(plan).not.toBeNull()
     expect(plan?.targetBox.width).toBeGreaterThan(8)
-    expect(plan?.labelBox).not.toBeNull()
+    expect(plan?.shape).toBe("circle")
   })
 
-  it("rejects low-confidence annotation targets", () => {
-    const plan = annotationTargetToRenderPlan({ ...syntheticAnnotationTargets[0]!, confidence: 0.2 }, { width: 720, height: 930 })
+  it("rejects annotation targets without usable geometry", () => {
+    const plan = annotationTargetToRenderPlan(
+      { ...syntheticAnnotationTargets[0]!, pageRef: { ...syntheticAnnotationTargets[0]!.pageRef, box: null } },
+      { width: 720, height: 930 }
+    )
     expect(plan).toBeNull()
   })
 })
