@@ -59,6 +59,7 @@ The MVP uses a simplified product model: one teacher owns their account, tests, 
 - [ ] Teacher can provide grading context as image, PDF, or text. This may include `hindamisjuhis`, rubric, answer key, solved examples, or free-text instructions.
 - [ ] Grading context is optional. The system must still process student work when no instruction document is available.
 - [ ] The system can propose a task model from the student work and available context: likely tasks, labels, criteria, max points, evidence references, and uncertainty.
+- [ ] When a `hindamisjuhis` is available, the system first extracts a stable guide-derived task model before analyzing student work, then reuses that same task structure for every work in the test.
 - [ ] Teacher can edit, split, merge, or ignore the proposed task model.
 
 ### F4: Student Work Upload
@@ -72,8 +73,9 @@ The MVP uses a simplified product model: one teacher owns their account, tests, 
 ### F5: AI Analysis
 
 - [ ] System can send whole uncropped work images/PDF pages, including visible names, to the EU-resident LLM path for the prototype when this is the simplest reliable approach.
-- [ ] System analyzes one student's complete uploaded work plus optional grading context in one LLM request.
+- [ ] System analyzes one student's complete uploaded work in one LLM request. For guided tests, this work call uses the previously extracted task model from the guide.
 - [ ] AI output uses the structured `GradingAnalysis` contract: visible student name, full transcription, task-wise transcript split, evidence references, likely mistake types, guidance-motivated grading rationale, suggested points, draft feedback, minimal annotation targets, and review flags.
+- [ ] For guided tests, every student analysis returns the same expected task keys, labels, ordering, and max points. Expected tasks not visible in an upload are flagged as not visible or uncertain rather than omitted or automatically graded as zero.
 - [ ] AI output does not include detected language, requested feedback language, language notes, language confidence, or model-produced feedback-language fields.
 - [ ] Teacher-selected feedback language is app-owned request/persistence metadata and can guide Estonian or English feedback drafts.
 - [ ] AI-generated math uses `\(...\)` / `\[...\]` spans inside task-wise transcript and feedback text so the UI can render it with KaTeX.

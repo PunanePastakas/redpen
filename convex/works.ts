@@ -102,10 +102,11 @@ export const requestAnalysis = mutation({
   handler: async (ctx, args) => {
     const teacher = await requireTeacher(ctx)
     const work = await requireOwnedWork(ctx, teacher._id, args.workId)
-    await requireOwnedTest(ctx, teacher._id, work.testId)
+    const test = await requireOwnedTest(ctx, teacher._id, work.testId)
     if (!canQueueAnalysis(work.status)) {
       throw new Error("This work cannot be queued for analysis in its current status")
     }
+    await ensureGuideTaskModelReadyForAnalysis(ctx, teacher._id, test)
 
     const uploads = await ctx.db
       .query("uploadedFiles")
@@ -142,6 +143,8 @@ export const requestAnalysisBatch = mutation({
 
     const eligibleWorks: typeof worksToAnalyze = []
     for (const work of worksToAnalyze) {
+      const test = await requireOwnedTest(ctx, teacher._id, work.testId)
+      await ensureGuideTaskModelReadyForAnalysis(ctx, teacher._id, test)
       const uploads = await ctx.db
         .query("uploadedFiles")
         .withIndex("by_teacherId_and_studentWorkId", (q) => q.eq("teacherId", teacher._id).eq("studentWorkId", work._id))
@@ -225,7 +228,11 @@ export const getForAi = internalQuery({
       .withIndex("by_teacherId_and_testId", (q) => q.eq("teacherId", work.teacherId).eq("testId", work.testId))
       .collect()
     const contextUploads = testUploads.filter((upload) => upload.role === "grading_context")
-    return { work, test, uploads, contextUploads }
+    const testTasks = await ctx.db
+      .query("testTasks")
+      .withIndex("by_teacherId_and_testId", (q) => q.eq("teacherId", work.teacherId).eq("testId", work.testId))
+      .collect()
+    return { work, test, uploads, contextUploads, testTasks: testTasks.filter((task) => !task.ignoredAt).sort((left, right) => left.order - right.order) }
   }
 })
 
@@ -267,6 +274,11 @@ export const applyAnalysisDraft = internalMutation({
       .withIndex("by_teacherId_and_workId", (q) => q.eq("teacherId", work.teacherId).eq("workId", work._id))
       .collect()
     await Promise.all(existingReviews.map((review) => ctx.db.delete(review._id)))
+    const expectedTasks = await ctx.db
+      .query("testTasks")
+      .withIndex("by_teacherId_and_testId", (q) => q.eq("teacherId", work.teacherId).eq("testId", work.testId))
+      .collect()
+    const expectedTaskByStableKey = new Map(expectedTasks.map((task) => [task.stableKey, task._id]))
 
     await ctx.db.patch(args.workId, {
       fullTranscription: args.fullTranscription,
@@ -290,6 +302,7 @@ export const applyAnalysisDraft = internalMutation({
         teacherId: work.teacherId,
         testId: work.testId,
         workId: work._id,
+        taskId: expectedTaskByStableKey.get(draft.stableKey),
         stableKey: draft.stableKey,
         sourceRefs: draft.sourceRefs,
         transcription: draft,
@@ -344,4 +357,18 @@ async function resolveWorksForBatch(
 
 function canQueueAnalysis(status: Doc<"studentWorks">["status"]) {
   return status !== "transcribing" && status !== "mapped" && status !== "drafted" && status !== "confirmed" && status !== "shared" && status !== "archived"
+}
+
+async function ensureGuideTaskModelReadyForAnalysis(ctx: MutationCtx, teacherId: Id<"users">, test: Doc<"tests">) {
+  const uploads = await ctx.db
+    .query("uploadedFiles")
+    .withIndex("by_teacherId_and_testId", (q) => q.eq("teacherId", teacherId).eq("testId", test._id))
+    .collect()
+  const hasGuide = uploads.some((upload) => upload.role === "grading_context")
+  if (!hasGuide) return
+
+  const ready = test.taskModelStatus === "ready" || (!test.taskModelStatus && test.taskModel.length > 0)
+  if (!ready) {
+    throw new Error("The grading guide task model is not ready yet. Wait for extraction to finish or retry guide extraction.")
+  }
 }

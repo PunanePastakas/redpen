@@ -3,12 +3,36 @@ import type { FunctionReference } from "convex/server"
 import { action, internalAction, internalMutation, type ActionCtx } from "./_generated/server"
 import { internal } from "./_generated/api"
 import type { Doc, Id } from "./_generated/dataModel"
-import { GRADING_ANALYSIS_SCHEMA_VERSION, GradingAnalysisJsonSchema, GradingAnalysisSchema, type GradingAnalysis } from "../lib/ai-schemas"
-import { buildAnalysisPrompt, buildSystemPrompt, GRADING_ANALYSIS_PROMPT_VERSION } from "../lib/ai/prompts"
+import {
+  GRADING_ANALYSIS_SCHEMA_VERSION,
+  GUIDE_TASK_MODEL_SCHEMA_VERSION,
+  GradingAnalysisJsonSchema,
+  GradingAnalysisSchema,
+  GuideTaskModelJsonSchema,
+  GuideTaskModelSchema,
+  type GradingAnalysis,
+  type GuideTaskModel
+} from "../lib/ai-schemas"
+import {
+  buildAnalysisPrompt,
+  buildGuideTaskModelPrompt,
+  buildGuideTaskModelSystemPrompt,
+  buildSystemPrompt,
+  EXPECTED_TASK_GRADING_ANALYSIS_PROMPT_VERSION,
+  GRADING_ANALYSIS_PROMPT_VERSION,
+  GUIDE_TASK_MODEL_PROMPT_VERSION,
+  summarizeExpectedTasksForPrompt
+} from "../lib/ai/prompts"
+import {
+  buildExpectedTaskAnalysisContract,
+  EXPECTED_TASK_GRADING_ANALYSIS_SCHEMA_VERSION,
+  taskModelEntriesFromGuideTaskModel,
+  type ExpectedTaskModelTask
+} from "../lib/ai/dynamic-analysis-schema"
 import { normalizeGradingAnalysisMath } from "../lib/grading-analysis-normalization"
 import { sha256Hex } from "./crypto"
-import { syntheticAnalysisForConvex } from "./syntheticAnalysis"
-import { requireIdentity } from "./auth"
+import { syntheticAnalysisForConvex, syntheticGuideTaskModelForConvex } from "./syntheticAnalysis"
+import { AuthorizationError, requireIdentity } from "./auth"
 
 type UploadForAi = {
   _id: Id<"uploadedFiles">
@@ -40,6 +64,17 @@ type AiInputData = {
   test: Doc<"tests">
   uploads: UploadForAi[]
   contextUploads: UploadForAi[]
+  testTasks: TestTaskForAi[]
+}
+
+type TestTaskForAi = {
+  _id: Id<"testTasks">
+  stableKey: string
+  label: string
+  maxPoints?: number
+  criteria?: unknown
+  source: string
+  order: number
 }
 
 type RecordAttemptStartedArgs = {
@@ -68,7 +103,11 @@ const aiActionRefs = internal.aiActions as unknown as {
 export const analyzeWork = action({
   args: { workId: v.id("studentWorks") },
   handler: async (ctx, args): Promise<GradingAnalysis> => {
-    await requireIdentity(ctx)
+    const teacherId = await requireIdentity(ctx)
+    const { work } = (await ctx.runQuery(internal.works.getForAi, { workId: args.workId })) as AiInputData
+    if (work.teacherId !== teacherId) {
+      throw new AuthorizationError("Student work is not owned by the current teacher")
+    }
     return await analyzeWorkNow(ctx, args.workId)
   }
 })
@@ -81,22 +120,32 @@ export const analyzeWorkInternal = internalAction({
 })
 
 async function analyzeWorkNow(ctx: ActionCtx, workId: Id<"studentWorks">): Promise<GradingAnalysis> {
-  const { work, test, uploads, contextUploads } = (await ctx.runQuery(internal.works.getForAi, { workId })) as AiInputData
+  const aiInput = (await ctx.runQuery(internal.works.getForAi, { workId })) as AiInputData
+  const { work, test, uploads, contextUploads } = aiInput
   const workUploads = uploads.filter((upload) => upload.role === "student_work")
   const gradingContextUploads = contextUploads.filter((upload) => upload.role === "grading_context")
+  const expectedTasks = gradingContextUploads.length > 0 ? expectedTasksFromTestTasks(aiInput) : []
+  if (gradingContextUploads.length > 0 && expectedTasks.length === 0) {
+    const message = "The grading guide task model is not ready yet"
+    await ctx.runMutation(internal.works.setStatusForAi, { workId: work._id, status: "error", error: message })
+    throw new Error(message)
+  }
   const providerMode = process.env.REDPEN_AI_PROVIDER ?? "openai"
   const endpoint = process.env.OPENAI_BASE_URL || "https://api.openai.com"
   const model = process.env.OPENAI_MODEL || "gpt-5.5"
   const inputRefs = makeInputRefs([...gradingContextUploads, ...workUploads])
+  const promptVersion = expectedTasks.length > 0 ? EXPECTED_TASK_GRADING_ANALYSIS_PROMPT_VERSION : GRADING_ANALYSIS_PROMPT_VERSION
+  const schemaVersion = expectedTasks.length > 0 ? EXPECTED_TASK_GRADING_ANALYSIS_SCHEMA_VERSION : GRADING_ANALYSIS_SCHEMA_VERSION
   const inputHash = await sha256Hex(
     JSON.stringify({
       workId: work._id,
       testId: work.testId,
       model,
       providerMode,
-      promptVersion: GRADING_ANALYSIS_PROMPT_VERSION,
-      schemaVersion: GRADING_ANALYSIS_SCHEMA_VERSION,
-      inputRefs
+      promptVersion,
+      schemaVersion,
+      inputRefs,
+      expectedTasks
     })
   )
   const attemptId = (await ctx.runMutation(aiActionRefs.recordAttemptStarted, {
@@ -108,9 +157,9 @@ async function analyzeWorkNow(ctx: ActionCtx, workId: Id<"studentWorks">): Promi
     dataControlMode: providerMode === "mock" ? "synthetic_fixture_only" : "store_false",
     dataResidencyRegion: endpoint === "https://eu.api.openai.com" ? "europe" : undefined,
     model,
-    promptVersion: GRADING_ANALYSIS_PROMPT_VERSION,
-    schemaVersion: GRADING_ANALYSIS_SCHEMA_VERSION,
-    purpose: "full_document_analysis",
+    promptVersion,
+    schemaVersion,
+    purpose: expectedTasks.length > 0 ? "full_document_analysis_with_expected_tasks" : "full_document_analysis",
     inputHash
   })) as Id<"aiAttempts">
 
@@ -121,7 +170,7 @@ async function analyzeWorkNow(ctx: ActionCtx, workId: Id<"studentWorks">): Promi
 
     const analysis: GradingAnalysis =
       providerMode === "mock"
-        ? normalizeGradingAnalysisMath(GradingAnalysisSchema.parse(syntheticAnalysisForConvex(test.defaultFeedbackLanguage)))
+        ? normalizeGradingAnalysisMath(GradingAnalysisSchema.parse(syntheticAnalysisForConvex(test.defaultFeedbackLanguage, expectedTasks)))
         : await callOpenAIResponses(ctx, {
             endpoint,
             model,
@@ -130,7 +179,8 @@ async function analyzeWorkNow(ctx: ActionCtx, workId: Id<"studentWorks">): Promi
             feedbackLanguage: test.defaultFeedbackLanguage,
             teacherNotes: test.notes,
             workUploads,
-            gradingContextUploads
+            gradingContextUploads,
+            expectedTasks
           })
 
     await ctx.runMutation(internal.works.applyAnalysisDraft, {
@@ -160,6 +210,88 @@ async function analyzeWorkNow(ctx: ActionCtx, workId: Id<"studentWorks">): Promi
   }
 }
 
+export const extractTaskModelInternal = internalAction({
+  args: { testId: v.id("tests") },
+  handler: async (ctx, args): Promise<GuideTaskModel> => {
+    return await extractTaskModelNow(ctx, args.testId)
+  }
+})
+
+async function extractTaskModelNow(ctx: ActionCtx, testId: Id<"tests">): Promise<GuideTaskModel> {
+  const { test, contextUploads } = (await ctx.runQuery(internal.tests.getForTaskModelExtraction, { testId })) as {
+    test: Doc<"tests">
+    contextUploads: UploadForAi[]
+  }
+  const gradingContextUploads = contextUploads.filter((upload) => upload.role === "grading_context")
+  if (gradingContextUploads.length === 0) {
+    throw new Error("No grading guide uploads are attached to this test")
+  }
+
+  const providerMode = process.env.REDPEN_AI_PROVIDER ?? "openai"
+  const endpoint = process.env.OPENAI_BASE_URL || "https://api.openai.com"
+  const model = process.env.OPENAI_MODEL || "gpt-5.5"
+  const inputRefs = makeInputRefs(gradingContextUploads)
+  const inputHash = await sha256Hex(
+    JSON.stringify({
+      testId: test._id,
+      model,
+      providerMode,
+      promptVersion: GUIDE_TASK_MODEL_PROMPT_VERSION,
+      schemaVersion: GUIDE_TASK_MODEL_SCHEMA_VERSION,
+      inputRefs
+    })
+  )
+
+  await ctx.runMutation(internal.tests.markTaskModelExtractionStarted, { testId: test._id, sourceHash: inputHash })
+
+  const attemptId = (await ctx.runMutation(aiActionRefs.recordAttemptStarted, {
+    teacherId: test.teacherId,
+    testId: test._id,
+    provider: providerMode === "mock" ? "mock" : "openai",
+    endpoint,
+    dataControlMode: providerMode === "mock" ? "synthetic_fixture_only" : "store_false",
+    dataResidencyRegion: endpoint === "https://eu.api.openai.com" ? "europe" : undefined,
+    model,
+    promptVersion: GUIDE_TASK_MODEL_PROMPT_VERSION,
+    schemaVersion: GUIDE_TASK_MODEL_SCHEMA_VERSION,
+    purpose: "task_model_extraction",
+    inputHash
+  })) as Id<"aiAttempts">
+
+  try {
+    const guideTaskModel =
+      providerMode === "mock"
+        ? GuideTaskModelSchema.parse(syntheticGuideTaskModelForConvex())
+        : await callOpenAIForTaskModel(ctx, {
+            endpoint,
+            model,
+            apiKey: process.env.OPENAI_API_KEY,
+            testTitle: test.title,
+            teacherNotes: test.notes,
+            gradingContextUploads
+          })
+
+    await ctx.runMutation(internal.tests.replaceTaskModelForAi, {
+      teacherId: test.teacherId,
+      testId: test._id,
+      taskModel: taskModelEntriesForConvex(guideTaskModel),
+      sourceHash: inputHash
+    })
+
+    await ctx.runMutation(aiActionRefs.recordAttemptCompleted, {
+      attemptId,
+      outputHash: await sha256Hex(JSON.stringify(guideTaskModel))
+    })
+
+    return guideTaskModel
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Guide task model extraction failed"
+    await ctx.runMutation(aiActionRefs.recordAttemptFailed, { attemptId, error: message })
+    await ctx.runMutation(internal.tests.markTaskModelExtractionFailed, { testId: test._id, sourceHash: inputHash, error: message })
+    throw error
+  }
+}
+
 async function callOpenAIResponses(
   ctx: ActionCtx,
   input: {
@@ -171,12 +303,14 @@ async function callOpenAIResponses(
     teacherNotes?: string
     workUploads: UploadForAi[]
     gradingContextUploads: UploadForAi[]
+    expectedTasks: ExpectedTaskModelTask[]
   }
 ): Promise<GradingAnalysis> {
   if (!input.apiKey) {
     throw new Error("OPENAI_API_KEY is not configured in Convex backend environment")
   }
 
+  const expectedContract = input.expectedTasks.length > 0 ? buildExpectedTaskAnalysisContract(input.expectedTasks) : null
   const userContent: ResponseContentItem[] = [
     {
       type: "input_text",
@@ -187,7 +321,8 @@ async function callOpenAIResponses(
         gradingContextSummary:
           input.gradingContextUploads.length > 0
             ? `${input.gradingContextUploads.length} Hindamisjuhend / grading guide file(s) are attached below. Use them as rubric/context, not as student work.`
-            : undefined
+            : undefined,
+        expectedTaskModelSummary: input.expectedTasks.length > 0 ? summarizeExpectedTasksForPrompt(input.expectedTasks) : undefined
       })
     }
   ]
@@ -222,9 +357,9 @@ async function callOpenAIResponses(
       text: {
         format: {
           type: "json_schema",
-          name: "grading_analysis",
+          name: expectedContract?.name ?? "grading_analysis",
           strict: true,
-          schema: GradingAnalysisJsonSchema
+          schema: expectedContract?.jsonSchema ?? GradingAnalysisJsonSchema
         }
       }
     })
@@ -241,7 +376,81 @@ async function callOpenAIResponses(
     throw new Error("OpenAI response did not include output_text")
   }
 
-  return normalizeGradingAnalysisMath(GradingAnalysisSchema.parse(JSON.parse(rawText)))
+  const parsed = JSON.parse(rawText)
+  return normalizeGradingAnalysisMath(expectedContract ? expectedContract.parse(parsed) : GradingAnalysisSchema.parse(parsed))
+}
+
+async function callOpenAIForTaskModel(
+  ctx: ActionCtx,
+  input: {
+    endpoint: string
+    model: string
+    apiKey: string | undefined
+    testTitle: string
+    teacherNotes?: string
+    gradingContextUploads: UploadForAi[]
+  }
+): Promise<GuideTaskModel> {
+  if (!input.apiKey) {
+    throw new Error("OPENAI_API_KEY is not configured in Convex backend environment")
+  }
+
+  const userContent: ResponseContentItem[] = [
+    {
+      type: "input_text",
+      text: buildGuideTaskModelPrompt({
+        testTitle: input.testTitle,
+        teacherNotes: input.teacherNotes
+      })
+    }
+  ]
+
+  for (const upload of input.gradingContextUploads) {
+    await appendUploadContent(ctx, userContent, upload, "Hindamisjuhend / grading guide")
+  }
+
+  const response = await fetch(responsesEndpoint(input.endpoint), {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${input.apiKey}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      model: input.model,
+      store: false,
+      input: [
+        {
+          role: "developer",
+          content: [{ type: "input_text", text: buildGuideTaskModelSystemPrompt() }]
+        },
+        {
+          role: "user",
+          content: userContent
+        }
+      ],
+      text: {
+        format: {
+          type: "json_schema",
+          name: "guide_task_model",
+          strict: true,
+          schema: GuideTaskModelJsonSchema
+        }
+      }
+    })
+  })
+
+  if (!response.ok) {
+    const body = await response.text()
+    throw new Error(`OpenAI Responses API failed with ${response.status}: ${body.slice(0, 600)}`)
+  }
+
+  const payload = await response.json()
+  const rawText = extractOutputText(payload)
+  if (!rawText) {
+    throw new Error("OpenAI response did not include output_text")
+  }
+
+  return GuideTaskModelSchema.parse(JSON.parse(rawText))
 }
 
 async function appendUploadContent(ctx: ActionCtx, content: ResponseContentItem[], upload: UploadForAi, label: string) {
@@ -309,6 +518,65 @@ function extractOutputText(payload: unknown) {
     }
   }
   return null
+}
+
+function expectedTasksFromTestTasks(input: AiInputData): ExpectedTaskModelTask[] {
+  const metadataByStableKey = new Map(
+    input.test.taskModel.map((task) => [
+      task.stableKey,
+      {
+        likelyTaskNumber: "likelyTaskNumber" in task ? task.likelyTaskNumber ?? null : null,
+        sourceRefs: "sourceRefs" in task && Array.isArray(task.sourceRefs) ? task.sourceRefs : [],
+        extractionWarnings: "extractionWarnings" in task && Array.isArray(task.extractionWarnings) ? task.extractionWarnings : [],
+        criteria: "criteria" in task ? task.criteria : null
+      }
+    ])
+  )
+
+  return input.testTasks
+    .slice()
+    .sort((left, right) => left.order - right.order)
+    .map((task) => {
+      const criteriaMetadata = isRecord(task.criteria) ? task.criteria : {}
+      const cachedMetadata = metadataByStableKey.get(task.stableKey)
+      return {
+        stableKey: task.stableKey,
+        label: task.label,
+        likelyTaskNumber: stringOrNull(criteriaMetadata.likelyTaskNumber) ?? cachedMetadata?.likelyTaskNumber ?? null,
+        maxPoints: task.maxPoints ?? null,
+        criteria: "value" in criteriaMetadata ? criteriaMetadata.value : cachedMetadata?.criteria ?? task.criteria ?? null,
+        sourceRefs: Array.isArray(criteriaMetadata.sourceRefs)
+          ? criteriaMetadata.sourceRefs as ExpectedTaskModelTask["sourceRefs"]
+          : cachedMetadata?.sourceRefs ?? [],
+        extractionWarnings: Array.isArray(criteriaMetadata.extractionWarnings)
+          ? criteriaMetadata.extractionWarnings.filter((warning): warning is string => typeof warning === "string")
+          : cachedMetadata?.extractionWarnings ?? [],
+        source: task.source,
+        order: task.order
+      }
+    })
+}
+
+function taskModelEntriesForConvex(model: GuideTaskModel) {
+  return taskModelEntriesFromGuideTaskModel(model).map((task) => ({
+    stableKey: task.stableKey,
+    label: task.label,
+    likelyTaskNumber: task.likelyTaskNumber ?? null,
+    ...(typeof task.maxPoints === "number" ? { maxPoints: task.maxPoints } : {}),
+    criteria: task.criteria ?? null,
+    sourceRefs: task.sourceRefs ?? [],
+    extractionWarnings: task.extractionWarnings ?? [],
+    source: "guidance_document",
+    order: task.order
+  }))
+}
+
+function stringOrNull(value: unknown) {
+  return typeof value === "string" ? value : null
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null
 }
 
 export const recordAttemptStarted = internalMutation({

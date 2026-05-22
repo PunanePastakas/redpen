@@ -261,16 +261,17 @@ flowchart LR
 2. Teacher creates or opens a test.
 3. Teacher optionally uploads a grading instruction (`hindamisjuhis`) as an image, PDF, or text. The instruction is useful context, not a hard prerequisite.
 4. Teacher uploads student work images or PDFs.
-5. The system sends each uploaded student work through one whole-work analysis call, detects the student's visible name if present, transcribes the work, splits it into likely tasks, and returns evidence references.
-6. The system uses the available context to propose task-level feedback, point suggestions, review flags, and sparse annotation targets. The context may include the instruction document, teacher notes, answer key, curriculum references, previous confirmed examples, or simply the full student work.
-7. Teacher reviews the AI draft. If task boundaries are useful, the teacher can review task by task. If the instruction and student work do not align cleanly, the teacher can review a more holistic result and split or merge tasks manually.
-8. Teacher edits or confirms feedback, points, and annotations.
-9. Teacher confirms each student's overall result and optional grade.
-10. Teacher shares feedback with the student or exports it. Student-facing access is limited to teacher-shared feedback.
+5. If a grading instruction is uploaded, the system first extracts a stable test task model from that guide: task order, labels, point maxima, point criteria, evidence references, and uncertainty flags.
+6. The system sends each uploaded student work through one whole-work analysis call. When a guide-derived task model exists, the student-work call must use that same expected task structure for every student in the test; otherwise it can infer visible tasks from the work and context.
+7. The system uses the available context and task model to propose task-level feedback, point suggestions, review flags, and sparse annotation targets. The context may include the instruction document, teacher notes, answer key, curriculum references, previous confirmed examples, or simply the full student work.
+8. Teacher reviews the AI draft. If task boundaries are useful, the teacher can review task by task. If the instruction and student work do not align cleanly, the teacher can review a more holistic result and split or merge tasks manually.
+9. Teacher edits or confirms feedback, points, and annotations.
+10. Teacher confirms each student's overall result and optional grade.
+11. Teacher shares feedback with the student or exports it. Student-facing access is limited to teacher-shared feedback.
 
 ## AI Processing Pipeline
 
-The first MVP should use the most straightforward robust multimodal pipeline: one analysis request per student's complete uploaded work, with the optional `hindamisjuhis` / grading guide attached as context. It does not need to crop first and it should not send a whole class of students in one model call.
+The first MVP should use the most straightforward robust multimodal pipeline: one analysis request per student's complete uploaded work. If a `hindamisjuhis` / grading guide is attached, RedPen first runs a guide-only task model extraction call for the test, then each student-work analysis uses that persisted expected task structure. It does not need to crop first and it should not send a whole class of students in one model call.
 
 ```mermaid
 sequenceDiagram
@@ -283,8 +284,14 @@ sequenceDiagram
   T->>UI: Upload optional instruction and student work
   UI->>C: Authenticated test/upload request
   C->>S: Store original files with hashes
+  opt Guide attached
+    C->>S: Resolve guide refs
+    C->>A: Guide-only task model extraction
+    A-->>C: Structured GuideTaskModel
+    C->>C: Persist testTasks + tests.taskModel
+  end
   C->>S: Resolve previously uploaded guide/work refs
-  C->>A: One Responses call for one student's work plus context
+  C->>A: One Responses call for one student's work plus expected tasks/context
   A-->>C: Structured GradingAnalysis
   C->>C: Validate schema, validate math spans, record attempt
   C-->>UI: Task-wise draft reviews with flags and audit metadata
@@ -296,14 +303,15 @@ sequenceDiagram
 Recommended pipeline stages:
 
 - Intake: store the original instruction and student work files once, with hashes and metadata.
-- Context assembly: combine all `grading_context` uploads for the test with all `student_work` uploads for one `studentWorks` record. The grading context is labeled as guide/rubric/answer-key context, never as student work.
-- Whole-work analysis: ask the multimodal model to transcribe the complete work, identify the visible student name, split the transcript into likely tasks, draft grading feedback and point suggestions, and suggest minimal mark-only annotations.
+- Guide task extraction: when `grading_context` uploads exist, extract and persist a stable expected task model for the test before student work analysis. This task model is teacher-reviewable and shared by all student works in the test.
+- Context assembly: combine all `grading_context` uploads for the test, the persisted expected task model when present, and all `student_work` uploads for one `studentWorks` record. The grading context is labeled as guide/rubric/answer-key context, never as student work.
+- Whole-work analysis: ask the multimodal model to transcribe the complete work, identify the visible student name, fill every expected task when a guide-derived task model exists, draft grading feedback and point suggestions, and suggest minimal mark-only annotations.
 - Structured validation: parse the response as `GradingAnalysis`, validate KaTeX math spans in task-wise transcript and feedback text, record the attempt, and leave malformed outputs retryable.
 - Task-wise review: persist one task review row per proposed task so the teacher can confirm, edit, reject, split, or replace the draft.
 - Optional crop refinement: only crop or re-send smaller regions when needed for annotation precision, unreadable handwriting, cost reduction, retrying a failed section, or teacher-requested re-analysis.
 - Teacher confirmation: persist the teacher's final decision separately from the AI draft.
 
-This pipeline accepts that a `hindamisjuhis` may mirror the student work structure, differ from it, cover only part of it, or be absent. The LLM should be prompted to use the instruction as additional grading context, add concrete review flags when the instruction is ambiguous, and avoid pretending that missing rubric details are certain.
+This pipeline accepts that a `hindamisjuhis` may mirror the student work structure, differ from it, cover only part of it, or be absent. When the guide produces an expected task model, missing expected tasks should stay visible in the review queue with not-visible/uncertain evidence status rather than being omitted or automatically graded as zero. The LLM should add concrete review flags when the instruction or upload is ambiguous and avoid pretending that missing rubric details are certain.
 
 ## Data Minimization Position
 

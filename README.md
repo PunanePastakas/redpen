@@ -117,9 +117,12 @@ manual smoke testing only:
 - `fixtures/synthetic/1o.jpg` and `fixtures/synthetic/1v.jpg` as student work
 
 With Convex/Auth configured, sign in, create a test, upload the PDF as grading
-context, upload the two JPG files as works, then run analysis. Use
-`REDPEN_AI_PROVIDER=mock` for a no-OpenAI smoke test, or a reviewed OpenAI
-backend configuration for a synthetic live-provider smoke test.
+context, wait for guide task extraction to become ready, upload the two JPG
+files as works, then run analysis. Guided analyses should use the same extracted
+task structure for both JPG works, including expected guide tasks that are not
+visible in the uploaded pages. Use `REDPEN_AI_PROVIDER=mock` for a no-OpenAI
+smoke test, or a reviewed OpenAI backend configuration for a synthetic
+live-provider smoke test.
 
 ## Environment
 

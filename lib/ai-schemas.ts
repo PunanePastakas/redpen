@@ -1,6 +1,7 @@
 import { z } from "zod"
 
-export const GRADING_ANALYSIS_SCHEMA_VERSION = "2026-05-22.grading-analysis.v3"
+export const GRADING_ANALYSIS_SCHEMA_VERSION = "2026-05-22.grading-analysis.v4"
+export const GUIDE_TASK_MODEL_SCHEMA_VERSION = "2026-05-22.guide-task-model.v1"
 
 export const FeedbackLanguageSchema = z.enum(["et", "en"])
 
@@ -48,6 +49,7 @@ export const MistakeTypeSchema = z.enum([
 export const RubricPointSourceSchema = z.enum(["guidance_document", "teacher_notes", "not_found"])
 
 export const TaskScoreBandSchema = z.enum(["full_points", "minor_mistakes", "major_mistakes", "not_attempted", "unclear"])
+export const TaskEvidenceStatusSchema = z.enum(["visible", "not_visible_in_upload", "blank_or_not_attempted", "unclear"])
 
 export const GradingTaskSchema = z.object({
   stableKey: z.string(),
@@ -63,6 +65,7 @@ export const GradingTaskSchema = z.object({
   gradingRationale: z.string(),
   mistakeTypes: z.array(MistakeTypeSchema),
   scoreBand: TaskScoreBandSchema,
+  taskEvidenceStatus: TaskEvidenceStatusSchema,
   suggestedPoints: z.object({
     value: z.number().nullable(),
     max: z.number().nullable(),
@@ -109,17 +112,55 @@ export const GradingAnalysisSchema = z.object({
   reviewFlags: z.array(ReviewFlagSchema)
 })
 
+export const GuideReviewFlagSchema = z.enum(["missing_rubric", "unclear_task_structure", "points_uncertain", "guide_mismatch"])
+
+export const GuideTaskCriteriaSchema = z.object({
+  description: z.string(),
+  pointGuide: z.array(z.string()),
+  solutionNotes: z.array(z.string())
+})
+
+export const GuideTaskSchema = z.object({
+  stableKey: z.string(),
+  label: z.string(),
+  likelyTaskNumber: z.string().nullable(),
+  maxPoints: z.number().nullable(),
+  criteria: GuideTaskCriteriaSchema,
+  sourceRefs: z.array(PageRefSchema),
+  order: z.number().int().nonnegative(),
+  extractionWarnings: z.array(z.string())
+})
+
+export const GuideTaskModelSchema = z.object({
+  schemaVersion: z.literal(GUIDE_TASK_MODEL_SCHEMA_VERSION),
+  sourceSummary: z.string(),
+  tasks: z.array(GuideTaskSchema),
+  totalMaxPoints: z.number().nullable(),
+  reviewFlags: z.array(GuideReviewFlagSchema)
+})
+
 export type FeedbackLanguage = z.infer<typeof FeedbackLanguageSchema>
 export type NormalizedBox = z.infer<typeof NormalizedBoxSchema>
 export type PageRef = z.infer<typeof PageRefSchema>
 export type AnnotationTarget = z.infer<typeof AnnotationTargetSchema>
 export type GradingTask = z.infer<typeof GradingTaskSchema>
 export type GradingAnalysis = z.infer<typeof GradingAnalysisSchema>
+export type TaskEvidenceStatus = z.infer<typeof TaskEvidenceStatusSchema>
+export type GuideTask = z.infer<typeof GuideTaskSchema>
+export type GuideTaskModel = z.infer<typeof GuideTaskModelSchema>
 
 export const GradingAnalysisJsonSchema = z.toJSONSchema(GradingAnalysisSchema, {
   target: "draft-7"
 })
 
+export const GuideTaskModelJsonSchema = z.toJSONSchema(GuideTaskModelSchema, {
+  target: "draft-7"
+})
+
 export function parseGradingAnalysis(value: unknown): GradingAnalysis {
   return GradingAnalysisSchema.parse(value)
+}
+
+export function parseGuideTaskModel(value: unknown): GuideTaskModel {
+  return GuideTaskModelSchema.parse(value)
 }

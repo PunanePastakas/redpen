@@ -79,6 +79,7 @@ export const syntheticAnalysis: GradingAnalysis = {
       mistakeTypes: ["no_issue_found"],
       gradingRationale: "The equation is solved correctly and \\(x = 6\\) follows from \\(2x = 12\\).",
       scoreBand: "full_points",
+      taskEvidenceStatus: "visible",
       suggestedPoints: { value: 2, max: 2, onlyIfRubricClear: true },
       feedbackDraft: "Õige lahendus. Võrrand on korrektselt teisendatud ja vastus \\(x = 6\\) on selge.",
       teacherReviewFlags: []
@@ -97,6 +98,7 @@ export const syntheticAnalysis: GradingAnalysis = {
       mistakeTypes: ["formula_misuse"],
       gradingRationale: "The middle term \\(6x\\) is correct, but the constant term should be \\(9\\) because \\(3^2 = 9\\).",
       scoreBand: "minor_mistakes",
+      taskEvidenceStatus: "visible",
       suggestedPoints: { value: 1, max: 2, onlyIfRubricClear: false },
       feedbackDraft: "Hea algus: keskmine liige on õige. Kontrolli ruutliikme valemit lõpuni, sest \\(3^2\\) annab \\(9\\), mitte \\(6\\).",
       teacherReviewFlags: ["Confirm partial credit manually."]

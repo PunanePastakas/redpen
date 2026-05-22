@@ -4,6 +4,14 @@ export const languageValidator = v.union(v.literal("et"), v.literal("en"))
 export const userRoleValidator = v.literal("teacher")
 export const studentAccessStatusValidator = v.union(v.literal("not_invited"), v.literal("invite_ready"), v.literal("active"), v.literal("revoked"))
 export const testStatusValidator = v.union(v.literal("draft"), v.literal("active"), v.literal("archived"))
+export const taskModelStatusValidator = v.union(
+  v.literal("none"),
+  v.literal("pending"),
+  v.literal("extracting"),
+  v.literal("ready"),
+  v.literal("stale"),
+  v.literal("failed")
+)
 export const uploadRoleValidator = v.union(
   v.literal("student_work"),
   v.literal("grading_context"),
@@ -46,8 +54,11 @@ export const taskModelValidator = v.array(
   v.object({
     stableKey: v.string(),
     label: v.string(),
+    likelyTaskNumber: v.optional(v.union(v.string(), v.null())),
     maxPoints: v.optional(v.number()),
     criteria: v.optional(v.any()),
+    sourceRefs: v.optional(v.array(v.any())),
+    extractionWarnings: v.optional(v.array(v.string())),
     source: v.string(),
     order: v.number()
   })

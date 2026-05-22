@@ -8,6 +8,7 @@ import {
   languageValidator,
   resultStatusValidator,
   retentionStateValidator,
+  taskModelStatusValidator,
   studentAccessStatusValidator,
   taskModelValidator,
   taskReviewStatusValidator,
@@ -78,6 +79,11 @@ export default defineSchema({
     notes: v.optional(v.string()),
     status: testStatusValidator,
     taskModel: taskModelValidator,
+    taskModelStatus: v.optional(taskModelStatusValidator),
+    taskModelSourceHash: v.optional(v.string()),
+    taskModelExtractedAt: v.optional(v.string()),
+    taskModelReviewedAt: v.optional(v.string()),
+    taskModelError: v.optional(v.string()),
     createdAt: v.string(),
     updatedAt: v.string()
   })

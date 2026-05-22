@@ -110,6 +110,7 @@ function LiveWorkbench() {
   const tests = useQuery(api.tests.list, {}) as Doc<"tests">[] | undefined
   const createTest = useMutation(api.tests.create)
   const updateTest = useMutation(api.tests.update)
+  const requestTaskModelExtraction = useMutation(api.tests.requestTaskModelExtraction)
   const generateUploadUrl = useMutation(api.uploads.generateUploadUrl)
   const recordUploadedFile = useMutation(api.uploads.recordUploadedFile)
   const createWork = useMutation(api.works.create)
@@ -135,6 +136,7 @@ function LiveWorkbench() {
   const [showEditTestModal, setShowEditTestModal] = useState(false)
   const [creatingTest, setCreatingTest] = useState(false)
   const [savingTest, setSavingTest] = useState(false)
+  const [preparingGuideTasks, setPreparingGuideTasks] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [removingWork, setRemovingWork] = useState(false)
   const [removedWorkUndo, setRemovedWorkUndo] = useState<{ workId: Id<"studentWorks">; label: string } | null>(null)
@@ -190,6 +192,7 @@ function LiveWorkbench() {
   const selectedReview = taskReviews?.find((review) => review._id === activeTaskReviewId) ?? null
   const selectedStudent = selectedWork?.studentId ? students?.find((student) => student._id === selectedWork.studentId) : null
   const contextUploads = useMemo(() => (uploads ?? []).filter((upload) => upload.role === "grading_context"), [uploads])
+  const guideTaskModelState = guideTaskModelStatus(selectedTest, contextUploads.length)
   const contextCountByTestId = useMemo(() => {
     return new Map((contextCounts ?? []).map((item) => [item.testId, item.count]))
   }, [contextCounts])
@@ -222,6 +225,7 @@ function LiveWorkbench() {
   const hasReviewOutput = Boolean((taskReviews?.length ?? 0) > 0 || result)
   const canRunSelectedAnalysis = Boolean(
     selectedWork &&
+      guideTaskModelState.canAnalyze &&
       !runningStatuses.includes(selectedWork.status) &&
       selectedWork.status !== "confirmed" &&
       selectedWork.status !== "shared" &&
@@ -229,6 +233,7 @@ function LiveWorkbench() {
   )
   const canRunBatchAnalysis = Boolean(
     activeTestId &&
+      guideTaskModelState.canAnalyze &&
       works?.some(
         (work) =>
           !runningStatuses.includes(work.status) &&
@@ -257,7 +262,7 @@ function LiveWorkbench() {
       }
       setNewTest(emptyNewTestDraft())
       setShowCreateTestModal(false)
-      setMessage(guideFile ? "Test created and grading guide uploaded." : "Test created.")
+      setMessage(guideFile ? "Test created, grading guide uploaded, and task extraction queued." : "Test created.")
     } catch (createError) {
       if (createdTestId) {
         setNewTest(emptyNewTestDraft())
@@ -280,7 +285,7 @@ function LiveWorkbench() {
       for (const file of Array.from(files)) {
         await uploadFile({ file, role: "grading_context", testId: activeTestId })
       }
-      setMessage(`${files.length} context file(s) uploaded.`)
+      setMessage(`${files.length} context file(s) uploaded. Guide task extraction queued.`)
     } catch (uploadError) {
       setError(errorMessage(uploadError))
     } finally {
@@ -338,6 +343,21 @@ function LiveWorkbench() {
       setError(errorMessage(updateError))
     } finally {
       setSavingTest(false)
+    }
+  }
+
+  async function prepareGuideTaskModel() {
+    if (!activeTestId) return
+    setError(null)
+    setMessage(null)
+    setPreparingGuideTasks(true)
+    try {
+      await requestTaskModelExtraction({ testId: activeTestId })
+      setMessage("Guide task extraction queued.")
+    } catch (taskModelError) {
+      setError(errorMessage(taskModelError))
+    } finally {
+      setPreparingGuideTasks(false)
     }
   }
 
@@ -715,6 +735,8 @@ function LiveWorkbench() {
                 <p className="mt-1 text-sm text-[var(--rp-muted)]">
                   {!selectedWork
                     ? "Select or upload a work first."
+                    : !guideTaskModelState.canAnalyze
+                      ? guideTaskModelState.description
                     : selectedWork.status === "error"
                       ? selectedWork.error || "Analysis failed. You can retry."
                       : selectedWork.status === "confirmed" || selectedWork.status === "shared"
@@ -726,6 +748,29 @@ function LiveWorkbench() {
               </div>
               {selectedWork && runningStatuses.includes(selectedWork.status) ? <Loader2 className="mt-1 animate-spin text-[var(--rp-primary)]" aria-hidden="true" size={18} /> : null}
             </div>
+            {guideTaskModelState.visible ? (
+              <div className="mt-3 rounded-[var(--rp-radius-control)] border border-[var(--rp-border)] bg-[var(--rp-surface-subtle)] px-3 py-2 text-sm">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="font-semibold">{guideTaskModelState.label}</p>
+                    <p className="mt-1 leading-5 text-[var(--rp-muted)]">{guideTaskModelState.description}</p>
+                  </div>
+                  {guideTaskModelState.showSpinner ? <Loader2 className="mt-0.5 shrink-0 animate-spin text-[var(--rp-primary)]" aria-hidden="true" size={16} /> : null}
+                </div>
+                {guideTaskModelState.canRetry ? (
+                  <Button
+                    className="mt-2 w-full"
+                    disabled={preparingGuideTasks}
+                    loading={preparingGuideTasks}
+                    onClick={() => void prepareGuideTaskModel()}
+                    variant="secondary"
+                  >
+                    {!preparingGuideTasks ? <Play size={16} /> : null}
+                    Prepare guide tasks
+                  </Button>
+                ) : null}
+              </div>
+            ) : null}
             <div className="mt-3 grid gap-2 sm:grid-cols-2">
               <Button
                 className="w-full"
@@ -1282,7 +1327,73 @@ function StatusMessages({
   )
 }
 
+function guideTaskModelStatus(test: Doc<"tests"> | null, guideCount: number) {
+  if (!test || guideCount === 0) {
+    return {
+      visible: false,
+      canAnalyze: true,
+      canRetry: false,
+      showSpinner: false,
+      label: "No guide task model",
+      description: "No grading guide is attached."
+    }
+  }
+
+  const taskCount = test.taskModel.length
+  const status = test.taskModelStatus ?? (taskCount > 0 ? "ready" : "pending")
+  switch (status) {
+    case "ready":
+      return {
+        visible: true,
+        canAnalyze: true,
+        canRetry: false,
+        showSpinner: false,
+        label: `${taskCount} guide task${taskCount === 1 ? "" : "s"} ready`,
+        description: "Student analyses will use the same extracted task structure and point guide."
+      }
+    case "extracting":
+      return {
+        visible: true,
+        canAnalyze: false,
+        canRetry: false,
+        showSpinner: true,
+        label: "Extracting guide tasks",
+        description: "Run analysis becomes available when the task structure is ready."
+      }
+    case "failed":
+      return {
+        visible: true,
+        canAnalyze: false,
+        canRetry: true,
+        showSpinner: false,
+        label: "Guide task extraction failed",
+        description: test.taskModelError || "Retry extraction before analyzing student work."
+      }
+    case "stale":
+      return {
+        visible: true,
+        canAnalyze: false,
+        canRetry: true,
+        showSpinner: false,
+        label: "Guide task model is stale",
+        description: "Prepare guide tasks again before analyzing student work with this guide."
+      }
+    case "pending":
+    case "none":
+    default:
+      return {
+        visible: true,
+        canAnalyze: false,
+        canRetry: true,
+        showSpinner: false,
+        label: "Guide tasks need preparation",
+        description: "Extract the guide task structure before running analysis."
+      }
+  }
+}
+
 type TaskScoreBand = "full_points" | "minor_mistakes" | "major_mistakes" | "not_attempted" | "unclear"
+type TaskEvidenceStatus = "visible" | "not_visible_in_upload" | "blank_or_not_attempted" | "unclear"
 
 type TaskReviewDraft = {
   taskTranscript?: string
@@ -1290,6 +1401,7 @@ type TaskReviewDraft = {
   gradingRationale?: string
   teacherReviewFlags?: string[]
   scoreBand?: TaskScoreBand
+  taskEvidenceStatus?: TaskEvidenceStatus
   suggestedPoints?: {
     value?: number | null
     max?: number | null
@@ -1329,6 +1441,11 @@ function GradingTaskPreview({ review }: { review: TaskReview }) {
 
   return (
     <div className="mt-4 space-y-3 rounded-[var(--rp-radius-panel)] border border-[var(--rp-border)] bg-[var(--rp-surface-subtle)] p-3 text-sm leading-6">
+      {draft.taskEvidenceStatus && draft.taskEvidenceStatus !== "visible" ? (
+        <p className="rounded-[var(--rp-radius-control)] border border-[var(--rp-brass)] bg-[var(--rp-brass-soft)] px-2 py-1 text-xs font-semibold text-[var(--rp-brass-strong)]">
+          {taskEvidenceStatusLabel(draft.taskEvidenceStatus)}
+        </p>
+      ) : null}
       {taskTranscript ? (
         <div>
           <p className="font-semibold text-[var(--rp-muted-strong)]">Task transcript</p>
@@ -1359,6 +1476,19 @@ function GradingTaskPreview({ review }: { review: TaskReview }) {
       ) : null}
     </div>
   )
+}
+
+function taskEvidenceStatusLabel(status: TaskEvidenceStatus) {
+  switch (status) {
+    case "not_visible_in_upload":
+      return "Expected task not visible in upload"
+    case "blank_or_not_attempted":
+      return "Visible but not attempted"
+    case "unclear":
+      return "Task evidence unclear"
+    case "visible":
+      return "Task evidence visible"
+  }
 }
 
 function FullTranscriptDisclosure({ transcription }: { transcription: unknown }) {

@@ -1,5 +1,6 @@
 import { v } from "convex/values"
 import { mutation, query } from "./_generated/server"
+import { internal } from "./_generated/api"
 import { requireOwnedTest, requireOwnedWork, requireTeacher } from "./auth"
 import { fileKindValidator, languageValidator, uploadRoleValidator } from "./validators"
 
@@ -30,7 +31,7 @@ export const recordUploadedFile = mutation({
     if (args.testId) await requireOwnedTest(ctx, teacher._id, args.testId)
     if (args.studentWorkId) await requireOwnedWork(ctx, teacher._id, args.studentWorkId)
 
-    return await ctx.db.insert("uploadedFiles", {
+    const uploadedFileId = await ctx.db.insert("uploadedFiles", {
       teacherId: teacher._id,
       testId: args.testId,
       studentWorkId: args.studentWorkId,
@@ -46,6 +47,17 @@ export const recordUploadedFile = mutation({
       deleteAfter: args.deleteAfter,
       createdAt: new Date().toISOString()
     })
+
+    if (args.testId && args.role === "grading_context") {
+      await ctx.db.patch(args.testId, {
+        taskModelStatus: "pending",
+        taskModelError: undefined,
+        updatedAt: new Date().toISOString()
+      })
+      await ctx.scheduler.runAfter(0, internal.aiActions.extractTaskModelInternal, { testId: args.testId })
+    }
+
+    return uploadedFileId
   }
 })
 
