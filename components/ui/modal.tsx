@@ -22,6 +22,10 @@ export function Modal({ open, title, description, children, onClose, pending = f
   useEffect(() => {
     if (!open) return
     dialogRef.current?.focus()
+  }, [open])
+
+  useEffect(() => {
+    if (!open) return
 
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape" && !pending) onClose()
