@@ -138,22 +138,24 @@ The workbench is desktop-first, dense, and operational. Favor clear workflow sur
 
 Available checks:
 
-- `npm run typecheck`
-- `npm run lint`
-- `npm test`
-- `npm run test:ai-contracts`
-- `npm run test:retention`
-- `npm run test:config`
-- `npm run check:config`
-- `npm run test:fixtures`
-- `npm run build`
-- `npm run check`
+- Use pnpm for Node dependency management. The project pins pnpm in `package.json`
+  and keeps dependency build-script approvals in `pnpm-workspace.yaml`.
+- `pnpm typecheck`
+- `pnpm lint`
+- `pnpm test`
+- `pnpm test:ai-contracts`
+- `pnpm test:retention`
+- `pnpm test:config`
+- `pnpm check:config`
+- `pnpm test:fixtures`
+- `pnpm build`
+- `pnpm check`
 
 For pure logic changes in `lib/`, add or update focused Vitest tests under `tests/`. For schema/prompt/provider changes, run the AI contract tests. For config, retention, fixture, upload, or public-repo hygiene changes, run the targeted guardrail script/test. For UI flow changes, run the narrowest useful tests plus a local browser smoke check when practical.
 
 ## Local Node Processes
 
-- When starting a Node-backed local process such as `npm run dev`, `next dev`, `convex dev`, Playwright servers, or one-off preview servers, track the PID or tool session that owns it.
+- When starting a Node-backed local process such as `pnpm dev`, `pnpm dev:convex`, `next dev`, `convex dev`, Playwright servers, or one-off preview servers, track the PID or tool session that owns it.
 - Before finishing the turn, stop any Node process you started unless the user explicitly asks to keep it running.
 - Verify cleanup with `lsof -nP -iTCP -sTCP:LISTEN` and kill only the relevant local server PIDs. Avoid killing editor helper processes or unrelated Node processes that are not listening on local ports.
 - If an existing Node server was already running before the work began, do not kill it unless the user explicitly asks to stop all local Node servers.

@@ -41,7 +41,7 @@ For repeated production migrations, prefer `@convex-dev/migrations`. Current Con
 
 - define one migration with `migrations.define({ table, migrateOne })`;
 - export a runner with `migrations.runner(...)`;
-- run it with `npx convex run migrations:runName`;
+- run it with `pnpm exec convex run migrations:runName`;
 - use a `reset` argument only when intentionally rerunning a migration from the beginning;
 - use `runToCompletion` in tests or controlled internal actions when a synchronous full run is useful.
 
@@ -141,4 +141,3 @@ Do not print transcript text in these reports.
 Before the contract step, rollback is code-only: redeploy the version that still reads both shapes. Because the migration is destructive only when it removes old fields, keep the old fields until verification is complete.
 
 If old fields have already been removed, rollback depends on backups or a separately retained export. Do not remove legacy fields in the same deploy that first introduces the new shape.
-

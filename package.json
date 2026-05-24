@@ -4,9 +4,11 @@
   "private": true,
   "license": "AGPL-3.0-only",
   "type": "module",
+  "packageManager": "pnpm@10.15.1",
   "scripts": {
     "dev": "next dev",
     "dev:convex": "convex dev",
+    "setup:auth": "auth",
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
@@ -17,7 +19,7 @@
     "test:retention": "vitest run tests/retention-policy.test.ts",
     "test:config": "vitest run tests/config.test.ts",
     "check:config": "tsx scripts/check-config.ts",
-    "check": "npm run typecheck && npm run lint && npm run test && npm run build && npm run test:fixtures"
+    "check": "pnpm run typecheck && pnpm run lint && pnpm run test && pnpm run build && pnpm run test:fixtures"
   },
   "dependencies": {
     "@convex-dev/auth": "^0.0.92",

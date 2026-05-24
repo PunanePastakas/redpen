@@ -761,9 +761,9 @@ Do not add a Next.js route, Convex HTTP action, or script that bypasses teacher 
 
 ### Quality Gates
 
-- [x] `npm run typecheck`
-- [x] `npm run lint`
-- [x] `npm run build`
+- [x] `pnpm typecheck`
+- [x] `pnpm lint`
+- [x] `pnpm build`
 - [ ] Unit tests for schemas, validators, auth helpers, provider adapter, retention policy, and annotation geometry.
 - [ ] Integration tests for PRD acceptance scenarios.
 - [x] Browser tests/screenshots for teacher workbench and student view.

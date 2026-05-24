@@ -41,13 +41,18 @@ mode.
 Install dependencies:
 
 ```bash
-npm install
+pnpm install
 ```
+
+The pnpm version is pinned in `package.json`. If `pnpm` is not available on your
+machine yet, run `corepack enable pnpm` once and then retry `pnpm install`. The
+root `pnpm-workspace.yaml` also commits the small native build-script allowlist
+that pnpm needs for dependencies such as `sharp` and `esbuild`.
 
 Start the Next.js app:
 
 ```bash
-npm run dev
+pnpm dev
 ```
 
 Open the teacher workbench at `http://localhost:3000`.
@@ -56,7 +61,7 @@ To enable live Convex functions, create/configure a Convex project manually in a
 EU region, then run:
 
 ```bash
-npx convex dev
+pnpm dev:convex
 ```
 
 This creates or connects the dev deployment and writes the local Convex values
@@ -65,7 +70,7 @@ used by the Next app. Keep the deployment in an EU region.
 Set up native Convex Auth after the deployment exists:
 
 ```bash
-npx @convex-dev/auth
+pnpm setup:auth
 ```
 
 The app uses Convex's native `@convex-dev/auth` password provider. You do not
@@ -78,15 +83,15 @@ Configure OpenAI on the Convex backend, not in the Next app. The preferred MVP
 model is `gpt-5.5`:
 
 ```bash
-npx convex env set -- OPENAI_API_KEY "sk-..."
-npx convex env set -- OPENAI_MODEL "gpt-5.5"
+pnpm exec convex env set -- OPENAI_API_KEY "sk-..."
+pnpm exec convex env set -- OPENAI_MODEL "gpt-5.5"
 ```
 
 For local tests or demos that must not call OpenAI, explicitly enable the mock
 provider on Convex:
 
 ```bash
-npx convex env set -- REDPEN_AI_PROVIDER "mock"
+pnpm exec convex env set -- REDPEN_AI_PROVIDER "mock"
 ```
 
 Do not use the mock provider to evaluate real work. Without
@@ -97,10 +102,10 @@ If your OpenAI project uses the Europe regional endpoint, set that on Convex as
 well:
 
 ```bash
-npx convex env set -- OPENAI_BASE_URL "https://eu.api.openai.com"
+pnpm exec convex env set -- OPENAI_BASE_URL "https://eu.api.openai.com"
 ```
 
-Use `--prod` with the same `npx convex env set` commands for production
+Use `--prod` with the same `pnpm exec convex env set` commands for production
 deployments. Do not put OpenAI keys in `NEXT_PUBLIC_*` variables or commit them
 to the repository.
 
@@ -144,24 +149,24 @@ guardrails:
 Check production-like configuration:
 
 ```bash
-npm run check:config
+pnpm check:config
 ```
 
 ## Quality Checks
 
 ```bash
-npm run typecheck
-npm run lint
-npm test
-npm run build
-npm run test:fixtures
-npm audit --omit=dev
+pnpm typecheck
+pnpm lint
+pnpm test
+pnpm build
+pnpm test:fixtures
+pnpm audit --prod
 ```
 
 Shortcut:
 
 ```bash
-npm run check
+pnpm check
 ```
 
 ## Public Repository Hygiene
@@ -171,7 +176,7 @@ This repository is AGPL-3.0-only and public-collaboration safe by default.
 - Never commit real student work, classroom exports, raw student screenshots, or
   secrets.
 - Keep fixtures synthetic or explicitly anonymized.
-- Use `npm run test:fixtures` before committing changes that touch fixtures,
+- Use `pnpm test:fixtures` before committing changes that touch fixtures,
   screenshots, docs, or public assets.
 - Do not paste real student work into AI tools, GitHub issues, screenshots, docs,
   benchmark commits, or support tickets.

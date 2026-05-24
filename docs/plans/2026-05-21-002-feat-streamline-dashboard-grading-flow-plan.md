@@ -398,9 +398,9 @@ If new archive/restore mutations are added, they should follow the same ownershi
 
 ### Quality Gates
 
-- [x] `npm run typecheck`
-- [x] `npm run lint`
-- [x] `npm test`
+- [x] `pnpm typecheck`
+- [x] `pnpm lint`
+- [x] `pnpm test`
 - [x] Add or update unit tests for any new archive/restore or selection helper logic.
 - [x] If feasible without a large test harness, add a browser/component test for modal creation and upload-only empty state. Existing tests do not include a component/browser harness, so this was covered by unit tests plus browser smoke instead.
 - [ ] Manually smoke test authenticated states: no tests, test created/no works, first work uploaded, multiple works, removed/undo, analysis error/running/review, confirmed/shared.
@@ -485,7 +485,7 @@ Success criteria:
 
 Tasks:
 
-- Run `npm run typecheck`, `npm run lint`, and `npm test`.
+- Run `pnpm typecheck`, `pnpm lint`, and `pnpm test`.
 - Manually verify empty and populated states with Convex configured.
 - Check responsive behavior at desktop and narrow widths.
 - Inspect modal keyboard/focus behavior.
