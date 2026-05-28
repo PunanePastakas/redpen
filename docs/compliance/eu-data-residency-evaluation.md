@@ -1,16 +1,16 @@
 # EU Data Residency Evaluation
 
-Status: evaluation draft  
-Date: 2026-05-25  
+Status: implementation update draft  
+Date: 2026-05-28  
 Scope: refactored RedPen MVP repository, not a live production audit
 
 ## Executive Summary
 
 RedPen is designed to be made EU-resident, but the refactored MVP cannot yet be truthfully described as "everything in the EU" for production student data without further provider and deployment work.
 
-The strongest current evidence is positive: the architecture requires Convex EU West, stores uploaded originals in Convex storage, logs AI attempts with endpoint and residency metadata, keeps model calls in Convex actions, uses `store: false`, and already blocks public OpenAI keys and Azure variables in the Next runtime.
+The strongest current evidence is positive: the architecture requires Convex EU West, stores uploaded originals in Convex storage, logs AI attempts with endpoint and residency metadata, keeps model calls in Convex actions, uses `store: false`, blocks public provider keys in the Next runtime, and now supports a backend Azure OpenAI provider path.
 
-The main blocker is the active provider implementation. The MVP path still uses direct OpenAI-compatible Responses calls through `OPENAI_API_KEY`, `OPENAI_BASE_URL`, and `OPENAI_MODEL`. Azure OpenAI / Microsoft Foundry EU deployment is explicitly documented as a later production-hardening path and is blocked by `validateRuntimeConfig` until Phase 3b exists. Therefore the repo is EU-ready in architecture, but not yet production-ready for a strict EU-only student-data claim.
+The main blocker is now deployment evidence rather than code wiring. The MVP still defaults to direct OpenAI-compatible Responses calls, but `REDPEN_AI_PROVIDER=azure_openai` can route Convex AI actions to Azure OpenAI deployment names with endpoint, API version, region, and deployment-type metadata. Therefore the repo is closer to EU-ready, but production student data still requires verified Azure resource configuration, DPIA/subprocessor evidence, and retention operations.
 
 ## Evidence Checklist
 
@@ -18,8 +18,8 @@ The main blocker is the active provider implementation. The MVP path still uses 
 | --- | --- | --- | --- | --- |
 | Convex database/functions/storage | `.env.example` sets `CONVEX_DEPLOYMENT_REGION=eu-west-1`; `lib/config.ts` fails closed for non-EU Convex regions; architecture names "Convex EU West deployment". | EU-ready if deployed as configured | Account-level deployment region must be verified outside the repo. Existing Convex deployments cannot be region-switched in place. | Create or verify the Convex deployment in EU West/Ireland before any real student pilot; record the deployment URL and region in the DPIA/subprocessor register. |
 | Browser uploads and raw files | `convex/uploads.ts` uses `ctx.storage.generateUploadUrl()` and records `storageId`, hashes, role, retention state, and `deleteAfter`. | EU-ready if Convex is EU | Raw files stay in Convex storage until retention jobs actually delete them. | Keep direct browser-to-Convex uploads; verify retention deletion implementation and scheduled cleanup before real data. |
-| AI inference provider | `convex/aiActions.ts` defaults to `OPENAI_BASE_URL || "https://api.openai.com"`, `OPENAI_MODEL || "gpt-5.5"`; `store: false` is set for guide extraction and work analysis. | Needs provider replacement/configuration | Default direct OpenAI global endpoint is not enough for a strict EU-only claim. `store: false` is not the same as EU-only processing. | Implement Phase 3b Azure/Foundry provider support and require Azure OpenAI/Foundry `DataZoneStandard` in the EU data zone or `Standard` in a single EU region for production student data. |
-| Azure OpenAI / Foundry | `docs/architecture/system-model.md` requires Data Zone/single EU region and prohibits global deployment types; `docs/prd/mvp-prd.md` says production AI calls use Azure OpenAI / Foundry Models EU Data Zone or single EU region. `lib/config.ts` currently blocks `AZURE_OPENAI_` and `FOUNDRY_` vars until Phase 3b. | Not implemented | Operators could assume Azure is already wired because docs mention it, but runtime blocks it. | Add provider configuration for Azure endpoint, deployment name, API version, and deployment type; add tests that reject Global/GlobalStandard for production. |
+| AI inference provider | `convex/aiActions.ts` defaults to OpenAI Responses, and supports `REDPEN_AI_PROVIDER=azure_openai` with Azure endpoint, deployment name, region, deployment type, disabled content logging, API version metadata, and `store: false`. | Implemented but deployment-dependent | Default direct OpenAI global endpoint is not enough for a strict EU-only claim; Azure metadata is self-reported config until account evidence is attached. | Use Azure OpenAI `DataZoneStandard` in the EU data zone or `Standard` in a single EU region for production student data, and record account evidence. |
+| Azure OpenAI / Foundry | `lib/config.ts` allows Azure OpenAI only through `REDPEN_AI_PROVIDER=azure_openai`, requires deployment names, rejects non-EU regions and unsupported/global deployment types for production-like use, requires content logging to be disabled, and keeps provider keys out of public env. | Wired for Azure OpenAI | Foundry Models beyond Azure OpenAI are still not separately implemented; config cannot prove the actual Azure account settings. | Verify resource region/deployment type/content logging in Azure and attach evidence to DPIA/subprocessor records. |
 | Direct OpenAI regional endpoint | README mentions `OPENAI_BASE_URL=https://eu.api.openai.com` for OpenAI Europe regional endpoint. `aiAttempts.dataResidencyRegion` is set to `europe` only for that exact endpoint. | Needs vendor/account confirmation | OpenAI Europe endpoint availability and controls depend on organization/project eligibility and data-control settings. | Treat direct OpenAI Europe as development or fallback only unless legal/vendor review confirms eligibility, residency, retention, abuse monitoring, and DPA posture. |
 | Vercel/Next runtime region | `next.config.ts` has no `preferredRegion`; `proxy.ts` runs Convex Auth middleware in Next. README has `FRONTEND_RUNTIME_REGION=eu-west-1`, but it is only checked when `RAW_FILE_PROXY_ENABLED=true`. | Needs deployment configuration | Next middleware/server runtime could execute outside the EU depending on hosting settings. | Pin Vercel functions/middleware to an EU region such as `fra1` or avoid raw-file handling in Next entirely; document the hosting provider and runtime region in the subprocessor register. |
 | Server-side file proxying | Current architecture prefers direct Convex storage upload; no app API upload route was found in the tracked file list. | Mostly EU-ready | If future upload proxy routes are added, they could become hidden processors of raw files. | Keep upload flow browser-to-Convex; if a proxy is introduced, require EU runtime pinning and no raw-file persistence. |
@@ -63,7 +63,7 @@ The repo is already strongly aligned with an EU Convex posture. The configuratio
 
 ### Azure OpenAI / Microsoft Foundry
 
-Azure/Foundry is the right production direction for a strict EU deployment, but it is not wired yet. `lib/config.ts` deliberately blocks `AZURE_OPENAI_` and `FOUNDRY_` variables until Phase 3b, which is a good fail-closed guardrail. Phase 3b should add explicit deployment-type configuration so production checks can distinguish `DataZoneStandard` or regional `Standard` from prohibited `GlobalStandard` deployments.
+Azure OpenAI is now wired as a backend provider selected with `REDPEN_AI_PROVIDER=azure_openai`. The Convex action records provider, endpoint, deployment name, API version metadata, data-control mode, residency region, deployment type, and content-logging posture in `aiAttempts`; `lib/config.ts` rejects non-EU regions, unsupported/global deployment types, and enabled content logging for production-like use. Microsoft Foundry model routing beyond Azure OpenAI remains future work.
 
 ### Direct OpenAI
 
@@ -86,7 +86,7 @@ The repo does not currently pin Next runtime placement in code. That is acceptab
 ## Recommended Implementation Sequence
 
 1. Keep the current fail-closed config guardrails.
-2. Add Phase 3b Azure/Foundry provider configuration and tests:
+2. Verify the Azure OpenAI provider configuration and tests against the live deployment:
    - endpoint/resource URL;
    - deployment name;
    - API version;
@@ -103,7 +103,7 @@ The repo does not currently pin Next runtime placement in code. That is acceptab
 
 **EU-ready architecture:** yes.  
 **EU-ready Convex path:** yes, if the actual deployment is EU West/Ireland.  
-**EU-ready AI path:** not yet; Azure/Foundry Phase 3b is required.  
+**EU-ready AI path:** Azure OpenAI code path exists; live Azure account evidence is still required.  
 **EU-ready frontend hosting:** unknown until Vercel/hosting region is pinned and verified.  
 **Safe for synthetic development:** yes, with the existing mock/direct OpenAI guardrails.
 

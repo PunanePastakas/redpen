@@ -29,7 +29,7 @@
 | Entity | Role | Location | Processing activity | DPA in place? |
 |--------|------|----------|-------------------|---------------|
 | RedPen [Legal name] | Data Processor | Estonia (EU) | Application hosting, image storage, audit logging | [Y/N] |
-| OpenAI (OpenAI Ireland Ltd / OpenAI, LLC) | Sub-processor | EU (EU API endpoint) | AI inference on homework images — zero data retention | [Y/N] |
+| Azure OpenAI / Microsoft | Sub-processor | EU Data Zone or single EU Azure region | AI inference on homework images — no training/storage, content logging disabled | [Y/N] |
 | [Hosting provider] | Sub-processor | [EU region] | Cloud infrastructure, database hosting | [Y/N] |
 | [Any other sub-processors] | | | | |
 
@@ -39,7 +39,7 @@
 
 **Processing name:** RedPen AI-Assisted Homework Grading
 
-**Short description:** *Write a plain-language summary of what RedPen does — teachers upload photographs of pupils' handwritten homework, the application sends the image to OpenAI's EU API endpoint for content recognition and grading suggestions, the teacher reviews and confirms or modifies the AI suggestion, and the final grade is recorded.*
+**Short description:** *Write a plain-language summary of what RedPen does — teachers upload photographs of pupils' handwritten homework, the application sends the image to a reviewed EU Azure OpenAI deployment for content recognition and grading suggestions, the teacher reviews and confirms or modifies the AI suggestion, and the final grade is recorded.*
 
 ### 0.4 Processing Timeline
 
@@ -103,7 +103,7 @@
 - **Nature:** Automated content recognition and grading suggestion with mandatory human review
 - **Scope:** Estonian pupils aged [AGE RANGE], [estimated number] of teachers, [estimated volume] of homework submissions per month
 - **Context:** Educational setting, children's data, power imbalance between institution and pupil, AI-assisted decision-making with human oversight
-- **Technology:** Large language model (OpenAI GPT-5.5) accessed via EU API endpoint with zero data retention
+- **Technology:** Large language model deployment accessed through Azure OpenAI in an EU Data Zone or single EU region, with no provider-side training/storage and content logging disabled
 
 ### 1.2 Functional Description
 
@@ -113,9 +113,9 @@
 2. Teacher photographs pupil homework using mobile device
 3. RedPen app strips EXIF metadata from the image
 4. Image is uploaded to RedPen's EU-hosted servers
-5. RedPen sends the image to OpenAI EU API endpoint (`eu.api.openai.com`) with a grading prompt
-6. OpenAI processes the image in-memory within EU infrastructure, returns grading suggestion — zero data retention, image is not stored by OpenAI
-7. RedPen receives the AI response and presents it to the teacher with confidence score
+5. RedPen sends the image to the configured Azure OpenAI EU deployment with a grading prompt
+6. Azure OpenAI processes the image within the reviewed EU deployment, returns a grading suggestion, and does not use the content for training or provider-side storage/logging beyond the approved configuration
+7. RedPen receives the AI response and presents it to the teacher with explicit uncertainty/review flags
 8. Teacher reviews, modifies if needed, and confirms the grade
 9. RedPen stores: the original image, AI suggestion, teacher's final decision, timestamp, model version — in EU-hosted database
 10. Audit log entry is created for compliance purposes
