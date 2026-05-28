@@ -59,6 +59,22 @@ type ResponseContentItem =
   | { type: "input_image"; image_url: string }
   | { type: "input_file"; file_url: string }
 
+type LiveProviderConfig = {
+  provider: "openai" | "azure_openai"
+  endpoint: string
+  responsesUrl: string
+  apiKey: string | undefined
+  apiVersion?: string
+  model: string
+  dataControlMode: string
+  dataResidencyRegion?: string
+  deploymentType?: string
+  contentLoggingDisabled?: boolean
+}
+
+const EU_AZURE_REGIONS = new Set(["sweden-central", "swedencentral", "france-central", "francecentral", "germany-west-central", "germanywestcentral", "westeurope", "west-europe", "northeurope", "north-europe", "europe"])
+const SAFE_AZURE_DEPLOYMENT_TYPES = new Set(["standard", "datazone-standard", "provisioned-managed"])
+
 type AiInputData = {
   work: Doc<"studentWorks">
   test: Doc<"tests">
@@ -88,6 +104,8 @@ type RecordAttemptStartedArgs = {
   dataResidencyRegion?: string
   model: string
   apiVersion?: string
+  deploymentType?: string
+  contentLoggingDisabled?: boolean
   promptVersion: string
   schemaVersion: string
   purpose: string
@@ -131,8 +149,7 @@ async function analyzeWorkNow(ctx: ActionCtx, workId: Id<"studentWorks">): Promi
     throw new Error(message)
   }
   const providerMode = process.env.REDPEN_AI_PROVIDER ?? "openai"
-  const endpoint = process.env.OPENAI_BASE_URL || "https://api.openai.com"
-  const model = process.env.OPENAI_MODEL || "gpt-5.5"
+  const providerConfig = resolveLiveProviderConfig(providerMode, "analysis")
   const inputRefs = makeInputRefs([...gradingContextUploads, ...workUploads])
   const promptVersion = expectedTasks.length > 0 ? EXPECTED_TASK_GRADING_ANALYSIS_PROMPT_VERSION : GRADING_ANALYSIS_PROMPT_VERSION
   const schemaVersion = expectedTasks.length > 0 ? EXPECTED_TASK_GRADING_ANALYSIS_SCHEMA_VERSION : GRADING_ANALYSIS_SCHEMA_VERSION
@@ -140,7 +157,7 @@ async function analyzeWorkNow(ctx: ActionCtx, workId: Id<"studentWorks">): Promi
     JSON.stringify({
       workId: work._id,
       testId: work.testId,
-      model,
+      model: providerConfig.model,
       providerMode,
       promptVersion,
       schemaVersion,
@@ -152,11 +169,14 @@ async function analyzeWorkNow(ctx: ActionCtx, workId: Id<"studentWorks">): Promi
     teacherId: work.teacherId,
     testId: work.testId,
     workId: work._id,
-    provider: providerMode === "mock" ? "mock" : "openai",
-    endpoint,
-    dataControlMode: providerMode === "mock" ? "synthetic_fixture_only" : "store_false",
-    dataResidencyRegion: endpoint === "https://eu.api.openai.com" ? "europe" : undefined,
-    model,
+    provider: providerMode === "mock" ? "mock" : providerConfig.provider,
+    endpoint: providerMode === "mock" ? "mock" : providerConfig.endpoint,
+    dataControlMode: providerMode === "mock" ? "synthetic_fixture_only" : providerConfig.dataControlMode,
+    dataResidencyRegion: providerMode === "mock" ? undefined : providerConfig.dataResidencyRegion,
+    model: providerMode === "mock" ? "synthetic" : providerConfig.model,
+    apiVersion: providerMode === "mock" ? undefined : providerConfig.apiVersion,
+    deploymentType: providerMode === "mock" ? undefined : providerConfig.deploymentType,
+    contentLoggingDisabled: providerMode === "mock" ? undefined : providerConfig.contentLoggingDisabled,
     promptVersion,
     schemaVersion,
     purpose: expectedTasks.length > 0 ? "full_document_analysis_with_expected_tasks" : "full_document_analysis",
@@ -172,9 +192,7 @@ async function analyzeWorkNow(ctx: ActionCtx, workId: Id<"studentWorks">): Promi
       providerMode === "mock"
         ? normalizeGradingAnalysisMath(GradingAnalysisSchema.parse(syntheticAnalysisForConvex(test.defaultFeedbackLanguage, expectedTasks)))
         : await callOpenAIResponses(ctx, {
-            endpoint,
-            model,
-            apiKey: process.env.OPENAI_API_KEY,
+            providerConfig,
             testTitle: test.title,
             feedbackLanguage: test.defaultFeedbackLanguage,
             teacherNotes: test.notes,
@@ -228,13 +246,12 @@ async function extractTaskModelNow(ctx: ActionCtx, testId: Id<"tests">): Promise
   }
 
   const providerMode = process.env.REDPEN_AI_PROVIDER ?? "openai"
-  const endpoint = process.env.OPENAI_BASE_URL || "https://api.openai.com"
-  const model = process.env.OPENAI_MODEL || "gpt-5.5"
+  const providerConfig = resolveLiveProviderConfig(providerMode, "task_model")
   const inputRefs = makeInputRefs(gradingContextUploads)
   const inputHash = await sha256Hex(
     JSON.stringify({
       testId: test._id,
-      model,
+      model: providerConfig.model,
       providerMode,
       promptVersion: GUIDE_TASK_MODEL_PROMPT_VERSION,
       schemaVersion: GUIDE_TASK_MODEL_SCHEMA_VERSION,
@@ -247,11 +264,14 @@ async function extractTaskModelNow(ctx: ActionCtx, testId: Id<"tests">): Promise
   const attemptId = (await ctx.runMutation(aiActionRefs.recordAttemptStarted, {
     teacherId: test.teacherId,
     testId: test._id,
-    provider: providerMode === "mock" ? "mock" : "openai",
-    endpoint,
-    dataControlMode: providerMode === "mock" ? "synthetic_fixture_only" : "store_false",
-    dataResidencyRegion: endpoint === "https://eu.api.openai.com" ? "europe" : undefined,
-    model,
+    provider: providerMode === "mock" ? "mock" : providerConfig.provider,
+    endpoint: providerMode === "mock" ? "mock" : providerConfig.endpoint,
+    dataControlMode: providerMode === "mock" ? "synthetic_fixture_only" : providerConfig.dataControlMode,
+    dataResidencyRegion: providerMode === "mock" ? undefined : providerConfig.dataResidencyRegion,
+    model: providerMode === "mock" ? "synthetic" : providerConfig.model,
+    apiVersion: providerMode === "mock" ? undefined : providerConfig.apiVersion,
+    deploymentType: providerMode === "mock" ? undefined : providerConfig.deploymentType,
+    contentLoggingDisabled: providerMode === "mock" ? undefined : providerConfig.contentLoggingDisabled,
     promptVersion: GUIDE_TASK_MODEL_PROMPT_VERSION,
     schemaVersion: GUIDE_TASK_MODEL_SCHEMA_VERSION,
     purpose: "task_model_extraction",
@@ -263,9 +283,7 @@ async function extractTaskModelNow(ctx: ActionCtx, testId: Id<"tests">): Promise
       providerMode === "mock"
         ? GuideTaskModelSchema.parse(syntheticGuideTaskModelForConvex())
         : await callOpenAIForTaskModel(ctx, {
-            endpoint,
-            model,
-            apiKey: process.env.OPENAI_API_KEY,
+            providerConfig,
             testTitle: test.title,
             teacherNotes: test.notes,
             gradingContextUploads
@@ -295,9 +313,7 @@ async function extractTaskModelNow(ctx: ActionCtx, testId: Id<"tests">): Promise
 async function callOpenAIResponses(
   ctx: ActionCtx,
   input: {
-    endpoint: string
-    model: string
-    apiKey: string | undefined
+    providerConfig: LiveProviderConfig
     testTitle: string
     feedbackLanguage: "et" | "en"
     teacherNotes?: string
@@ -306,9 +322,7 @@ async function callOpenAIResponses(
     expectedTasks: ExpectedTaskModelTask[]
   }
 ): Promise<GradingAnalysis> {
-  if (!input.apiKey) {
-    throw new Error("OPENAI_API_KEY is not configured in Convex backend environment")
-  }
+  requireProviderApiKey(input.providerConfig)
 
   const expectedContract = input.expectedTasks.length > 0 ? buildExpectedTaskAnalysisContract(input.expectedTasks) : null
   const userContent: ResponseContentItem[] = [
@@ -335,14 +349,11 @@ async function callOpenAIResponses(
     await appendUploadContent(ctx, userContent, upload, "Student work")
   }
 
-  const response = await fetch(responsesEndpoint(input.endpoint), {
+  const response = await fetch(input.providerConfig.responsesUrl, {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${input.apiKey}`,
-      "Content-Type": "application/json"
-    },
+    headers: providerHeaders(input.providerConfig),
     body: JSON.stringify({
-      model: input.model,
+      model: input.providerConfig.model,
       store: false,
       input: [
         {
@@ -383,17 +394,13 @@ async function callOpenAIResponses(
 async function callOpenAIForTaskModel(
   ctx: ActionCtx,
   input: {
-    endpoint: string
-    model: string
-    apiKey: string | undefined
+    providerConfig: LiveProviderConfig
     testTitle: string
     teacherNotes?: string
     gradingContextUploads: UploadForAi[]
   }
 ): Promise<GuideTaskModel> {
-  if (!input.apiKey) {
-    throw new Error("OPENAI_API_KEY is not configured in Convex backend environment")
-  }
+  requireProviderApiKey(input.providerConfig)
 
   const userContent: ResponseContentItem[] = [
     {
@@ -409,14 +416,11 @@ async function callOpenAIForTaskModel(
     await appendUploadContent(ctx, userContent, upload, "Hindamisjuhend / grading guide")
   }
 
-  const response = await fetch(responsesEndpoint(input.endpoint), {
+  const response = await fetch(input.providerConfig.responsesUrl, {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${input.apiKey}`,
-      "Content-Type": "application/json"
-    },
+    headers: providerHeaders(input.providerConfig),
     body: JSON.stringify({
-      model: input.model,
+      model: input.providerConfig.model,
       store: false,
       input: [
         {
@@ -500,9 +504,134 @@ function makeInputRefs(uploads: UploadForAi[]): InputRef[] {
     }))
 }
 
-function responsesEndpoint(endpoint: string) {
+function resolveLiveProviderConfig(providerMode: string, purpose: "analysis" | "task_model"): LiveProviderConfig {
+  if (providerMode === "openai") {
+    const endpoint = process.env.OPENAI_BASE_URL || "https://api.openai.com"
+    return {
+      provider: "openai",
+      endpoint,
+      responsesUrl: openAIResponsesEndpoint(endpoint),
+      apiKey: process.env.OPENAI_API_KEY,
+      model: process.env.OPENAI_MODEL || "gpt-5.5",
+      dataControlMode: "store_false",
+      dataResidencyRegion: endpoint === "https://eu.api.openai.com" ? "europe" : undefined
+    }
+  }
+
+  if (providerMode === "azure_openai") {
+    const endpoint = requireAzureEndpoint(process.env.AZURE_OPENAI_ENDPOINT)
+    const deploymentType = normalizeAzureValue(process.env.AZURE_OPENAI_DEPLOYMENT_TYPE)
+    const region = normalizeAzureValue(process.env.AZURE_OPENAI_REGION)
+    const contentLoggingDisabled = process.env.AZURE_OPENAI_CONTENT_LOGGING_DISABLED === "true"
+    validateAzureRuntime({ region, deploymentType, contentLoggingDisabled })
+
+    return {
+      provider: "azure_openai",
+      endpoint,
+      responsesUrl: azureResponsesEndpoint(endpoint),
+      apiKey: process.env.AZURE_OPENAI_API_KEY,
+      apiVersion: process.env.AZURE_OPENAI_API_VERSION,
+      model: azureDeploymentName(purpose),
+      dataControlMode: process.env.AZURE_OPENAI_DATA_CONTROL_MODE || "azure_no_training_store_false",
+      dataResidencyRegion: region,
+      deploymentType,
+      contentLoggingDisabled
+    }
+  }
+
+  if (providerMode === "mock") {
+    return {
+      provider: "openai",
+      endpoint: "mock",
+      responsesUrl: "mock",
+      apiKey: "mock",
+      model: "synthetic",
+      dataControlMode: "synthetic_fixture_only"
+    }
+  }
+
+  throw new Error(`Unsupported REDPEN_AI_PROVIDER: ${providerMode}`)
+}
+
+function azureDeploymentName(purpose: "analysis" | "task_model") {
+  const specific = purpose === "task_model" ? process.env.AZURE_OPENAI_TASK_MODEL_DEPLOYMENT : process.env.AZURE_OPENAI_ANALYSIS_DEPLOYMENT
+  const deployment = specific || process.env.AZURE_OPENAI_DEPLOYMENT
+  if (!deployment) {
+    throw new Error("AZURE_OPENAI_DEPLOYMENT or a purpose-specific Azure OpenAI deployment name must be configured")
+  }
+  return deployment
+}
+
+function requireAzureEndpoint(endpoint: string | undefined) {
+  if (!endpoint) {
+    throw new Error("AZURE_OPENAI_ENDPOINT must be configured in Convex backend environment")
+  }
+
+  let parsed: URL
+  try {
+    parsed = new URL(endpoint)
+  } catch {
+    throw new Error("AZURE_OPENAI_ENDPOINT must be a valid HTTPS Azure OpenAI URL")
+  }
+
+  if (parsed.protocol !== "https:" || !parsed.hostname.endsWith(".openai.azure.com")) {
+    throw new Error("AZURE_OPENAI_ENDPOINT must use HTTPS and an *.openai.azure.com host")
+  }
+
+  return endpoint
+}
+
+function validateAzureRuntime(input: { region?: string; deploymentType?: string; contentLoggingDisabled: boolean }) {
+  if (!input.region || !EU_AZURE_REGIONS.has(input.region)) {
+    throw new Error("AZURE_OPENAI_REGION must be an approved EU Azure region")
+  }
+
+  if (!input.deploymentType || !SAFE_AZURE_DEPLOYMENT_TYPES.has(input.deploymentType)) {
+    throw new Error("AZURE_OPENAI_DEPLOYMENT_TYPE must be Standard, DataZoneStandard, or ProvisionedManaged for RedPen")
+  }
+
+  if (!input.contentLoggingDisabled) {
+    throw new Error("AZURE_OPENAI_CONTENT_LOGGING_DISABLED must be true for RedPen")
+  }
+}
+
+function normalizeAzureValue(value: string | undefined) {
+  return value?.toLowerCase().replace(/\s+/g, "").replace(/_/g, "-")
+}
+
+function requireProviderApiKey(config: LiveProviderConfig) {
+  if (config.provider === "azure_openai" && (!process.env.AZURE_OPENAI_ENDPOINT || !config.apiKey)) {
+    throw new Error("AZURE_OPENAI_ENDPOINT and AZURE_OPENAI_API_KEY must be configured in Convex backend environment")
+  }
+
+  if (config.provider === "openai" && !config.apiKey) {
+    throw new Error("OPENAI_API_KEY is not configured in Convex backend environment")
+  }
+}
+
+function providerHeaders(config: LiveProviderConfig): Record<string, string> {
+  if (config.provider === "azure_openai") {
+    return {
+      "api-key": config.apiKey ?? "",
+      "Content-Type": "application/json"
+    }
+  }
+
+  return {
+    Authorization: `Bearer ${config.apiKey}`,
+    "Content-Type": "application/json"
+  }
+}
+
+function openAIResponsesEndpoint(endpoint: string) {
   const normalized = endpoint.replace(/\/+$/, "")
   return normalized.endsWith("/v1") ? `${normalized}/responses` : `${normalized}/v1/responses`
+}
+
+function azureResponsesEndpoint(endpoint: string) {
+  const normalized = endpoint.replace(/\/+$/, "")
+  const base = normalized.endsWith("/openai/v1") ? normalized : `${normalized}/openai/v1`
+  return `${base}/responses`
 }
 
 function extractOutputText(payload: unknown) {
@@ -591,6 +720,8 @@ export const recordAttemptStarted = internalMutation({
     dataResidencyRegion: v.optional(v.string()),
     model: v.string(),
     apiVersion: v.optional(v.string()),
+    deploymentType: v.optional(v.string()),
+    contentLoggingDisabled: v.optional(v.boolean()),
     promptVersion: v.string(),
     schemaVersion: v.string(),
     purpose: v.string(),

@@ -6,9 +6,27 @@ describe("OpenAI provider boundary", () => {
     expect(makeProviderMetadata({ model: "gpt-5.5" }).storeResponses).toBe(false)
   })
 
+  it("records Azure OpenAI provider metadata", () => {
+    const metadata = makeProviderMetadata({
+      provider: "azure_openai",
+      model: "gpt-5-5-eu",
+      endpoint: "https://redpen.openai.azure.com",
+      apiVersion: "2025-04-01-preview",
+      dataControlMode: "azure_no_training_store_false",
+      dataResidencyRegion: "sweden-central"
+    })
+
+    expect(metadata).toMatchObject({
+      provider: "azure_openai",
+      model: "gpt-5-5-eu",
+      apiVersion: "2025-04-01-preview",
+      storeResponses: false
+    })
+  })
+
   it("hashes analysis inputs without raw image bytes in the audit key", async () => {
     const hash = await hashAnalysisInput({
-      provider: "openai",
+      provider: "azure_openai",
       model: "gpt-5.5",
       purpose: "full_document_analysis",
       testTitle: "Synthetic test",

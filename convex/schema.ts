@@ -222,6 +222,8 @@ export default defineSchema({
     dataResidencyRegion: v.optional(v.string()),
     model: v.string(),
     apiVersion: v.optional(v.string()),
+    deploymentType: v.optional(v.string()),
+    contentLoggingDisabled: v.optional(v.boolean()),
     promptVersion: v.string(),
     schemaVersion: v.string(),
     purpose: v.string(),

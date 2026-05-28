@@ -3,7 +3,7 @@ import { GRADING_ANALYSIS_SCHEMA_VERSION } from "@/lib/ai-schemas"
 import { GRADING_ANALYSIS_PROMPT_VERSION } from "@/lib/ai/prompts"
 import { sha256Hex } from "@/lib/hashing"
 
-export type AIProviderName = "openai"
+export type AIProviderName = "openai" | "azure_openai"
 
 export type AIPageInput = {
   pageNumber: number
@@ -75,6 +75,7 @@ export async function hashAnalysisOutput(analysis: GradingAnalysis) {
 }
 
 export function makeProviderMetadata(input: {
+  provider?: AIProviderName
   model: string
   endpoint?: string
   dataControlMode?: string
@@ -82,7 +83,7 @@ export function makeProviderMetadata(input: {
   apiVersion?: string | null
 }): AIProviderMetadata {
   return {
-    provider: "openai",
+    provider: input.provider ?? "openai",
     endpoint: input.endpoint ?? "https://api.openai.com",
     dataControlMode: input.dataControlMode ?? "default",
     dataResidencyRegion: input.dataResidencyRegion ?? null,
