@@ -546,11 +546,13 @@ Success criteria:
 
 Tasks:
 
-- Implement `lib/ai/azure-openai.ts` behind the same provider interface used by the MVP OpenAI API adapter.
+- Implement Azure OpenAI in the backend provider path used by Convex AI actions; a shared provider-interface extraction remains optional follow-up work.
 - Add Azure/Foundry environment variables: `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_API_KEY`, `AZURE_OPENAI_DEPLOYMENT`, `AZURE_OPENAI_API_VERSION`, `AZURE_OPENAI_REGION`, `AZURE_OPENAI_DEPLOYMENT_TYPE`, and `AZURE_OPENAI_CONTENT_LOGGING_DISABLED`.
 - Enforce EU Data Zone or single EU region deployment modes for student content.
 - Block Azure `Global` deployment types in production.
 - Update the sub-processor register, DPIA, and production deployment runbook before switching real production traffic.
+
+Implementation note (2026-05-28): the RedPen Convex AI action now supports `REDPEN_AI_PROVIDER=azure_openai` with fail-closed deployment, endpoint, EU region, deployment-type, and content-logging checks. Real production traffic still requires live Azure account evidence and compliance record updates.
 
 Success criteria:
 

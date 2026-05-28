@@ -79,13 +79,28 @@ command configures `SITE_URL`, `JWT_PRIVATE_KEY`, and `JWKS` for the Convex
 deployment. `convex/auth.config.ts` uses Convex's deployment-provided
 `CONVEX_SITE_URL`.
 
-Configure OpenAI on the Convex backend, not in the Next app. The preferred MVP
-model is `gpt-5.5`:
+Configure the AI provider on the Convex backend, not in the Next app. The default MVP provider is OpenAI Responses with `store: false`; Azure OpenAI is also supported for reviewed EU deployments. The preferred MVP model is `gpt-5.5`:
 
 ```bash
 pnpm exec convex env set -- OPENAI_API_KEY "sk-..."
 pnpm exec convex env set -- OPENAI_MODEL "gpt-5.5"
 ```
+
+
+To use Azure OpenAI instead, set the provider and Azure deployment values on Convex. The deployment variables are Azure deployment names, not model IDs:
+
+```bash
+pnpm exec convex env set -- REDPEN_AI_PROVIDER "azure_openai"
+pnpm exec convex env set -- AZURE_OPENAI_ENDPOINT "https://your-resource.openai.azure.com"
+pnpm exec convex env set -- AZURE_OPENAI_API_KEY "..."
+pnpm exec convex env set -- AZURE_OPENAI_API_VERSION "2025-04-01-preview"
+pnpm exec convex env set -- AZURE_OPENAI_DEPLOYMENT "your-gpt-5.5-deployment"
+pnpm exec convex env set -- AZURE_OPENAI_REGION "sweden-central"
+pnpm exec convex env set -- AZURE_OPENAI_DEPLOYMENT_TYPE "datazone_standard"
+pnpm exec convex env set -- AZURE_OPENAI_CONTENT_LOGGING_DISABLED "true"
+```
+
+For separate deployments, set `AZURE_OPENAI_ANALYSIS_DEPLOYMENT` and `AZURE_OPENAI_TASK_MODEL_DEPLOYMENT`. Production or real-student use still requires EU-region verification, DPIA/subprocessor review, disabled content logging, and no provider-side training/storage commitments.
 
 For local tests or demos that must not call OpenAI, explicitly enable the mock
 provider on Convex:
@@ -142,7 +157,7 @@ guardrails:
 - `OPENAI_MODEL` defaults to `gpt-5.5` when not set on Convex.
 - If you use OpenAI's Europe regional endpoint, set
   `OPENAI_BASE_URL=https://eu.api.openai.com` on Convex.
-- Azure/Foundry variables are blocked until Phase 3b is implemented and reviewed.
+- Azure OpenAI variables are allowed only through the backend provider path and must include EU deployment metadata for production or real-student use.
 - `RAW_FILE_RETENTION_DAYS` defaults to `14`, `DELETE_AFTER_SHARE_HOURS` to `24`,
   and `ABANDONED_DRAFT_RETENTION_DAYS` to `30`.
 

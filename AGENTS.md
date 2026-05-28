@@ -102,7 +102,7 @@ This repository is public-collaboration oriented and AGPL-3.0-only. Treat studen
 - `validateUploadFile` intentionally rejects filenames that look like real student data.
 - Do not paste real student work into issues, docs, screenshots, tests, prompts, or external tools.
 - Production/customer-content posture is EU-first: Convex EU region, EU-resident inference path, no provider-side training, documented DPIA/subprocessor posture, and short retention.
-- Azure/Foundry environment variables are intentionally blocked until Phase 3b is implemented and reviewed.
+- Azure OpenAI is now available only through the reviewed backend provider path; keep EU region, non-global deployment type, content logging disabled, and no-training posture documented before real student use. Microsoft Foundry routing remains blocked until separately implemented and reviewed.
 - Raw uploads and derived artifacts should follow `lib/retention-policy.ts`; confirmed feedback and audit logs have separate retention concerns.
 
 ## Frontend Conventions
