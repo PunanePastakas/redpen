@@ -16,7 +16,21 @@ const EU_CONVEX_REGIONS = new Set([
   "aws-eu-west-1"
 ])
 
-const AZURE_PREFIXES = ["AZURE_OPENAI_", "FOUNDRY_"]
+const EU_AZURE_REGIONS = new Set([
+  "sweden-central",
+  "swedencentral",
+  "france-central",
+  "francecentral",
+  "germany-west-central",
+  "germanywestcentral",
+  "westeurope",
+  "west-europe",
+  "northeurope",
+  "north-europe",
+  "europe"
+])
+
+const AZURE_DEPLOYMENT_TYPES = new Set(["standard", "datazone-standard", "provisioned-managed"])
 
 export function validateRuntimeConfig(
   env: RuntimeConfigInput,
@@ -38,8 +52,16 @@ export function validateRuntimeConfig(
     errors.push("NEXT_PUBLIC_OPENAI_API_KEY must never be set; OpenAI keys belong in Convex backend environment variables.")
   }
 
+  if (env.NEXT_PUBLIC_AZURE_OPENAI_API_KEY) {
+    errors.push("NEXT_PUBLIC_AZURE_OPENAI_API_KEY must never be set; Azure OpenAI keys belong in Convex backend environment variables.")
+  }
+
   if (env.OPENAI_API_KEY) {
     warnings.push("OPENAI_API_KEY is not used by the Next app; set it in Convex backend env instead.")
+  }
+
+  if (env.AZURE_OPENAI_API_KEY) {
+    warnings.push("AZURE_OPENAI_API_KEY is not used by the Next app; set it in Convex backend env instead.")
   }
 
   const dpiaDecisionPath = env.DPIA_DECISION_PATH ?? env.OPENAI_DPIA_DECISION_PATH
@@ -47,11 +69,7 @@ export function validateRuntimeConfig(
     errors.push("REAL_STUDENT_PILOT_MODE requires DPIA_DECISION_PATH documenting the data-control decision.")
   }
 
-  for (const [key, value] of Object.entries(env)) {
-    if (value && AZURE_PREFIXES.some((prefix) => key.startsWith(prefix))) {
-      errors.push(`${key} is set, but Azure/Foundry provider variables are blocked until Phase 3b is implemented.`)
-    }
-  }
+  validateAzureOpenAIConfig(env, errors, warnings, productionLike)
 
   const rawFileProxyEnabled = env.RAW_FILE_PROXY_ENABLED === "true"
   const frontendRuntimeRegion = env.FRONTEND_RUNTIME_REGION
@@ -83,6 +101,55 @@ export function validateRuntimeConfig(
   return { ok: errors.length === 0, errors, warnings }
 }
 
+function validateAzureOpenAIConfig(env: RuntimeConfigInput, errors: string[], warnings: string[], productionLike: boolean) {
+  const provider = env.REDPEN_AI_PROVIDER
+  const azureSelected = provider === "azure_openai"
+  const azureConfigured = Object.entries(env).some(([key, value]) => key.startsWith("AZURE_OPENAI_") && Boolean(value))
+
+  if (provider && !["openai", "azure_openai", "mock"].includes(provider)) {
+    errors.push("REDPEN_AI_PROVIDER must be one of openai, azure_openai, or mock.")
+  }
+
+  if (azureConfigured && !azureSelected) {
+    warnings.push("Azure OpenAI variables are set but REDPEN_AI_PROVIDER is not azure_openai.")
+  }
+
+  if (!azureSelected) return
+
+  if (!env.AZURE_OPENAI_ENDPOINT) errors.push("AZURE_OPENAI_ENDPOINT is required when REDPEN_AI_PROVIDER=azure_openai.")
+  if (!env.AZURE_OPENAI_API_KEY) warnings.push("AZURE_OPENAI_API_KEY must be set in Convex backend env when REDPEN_AI_PROVIDER=azure_openai.")
+  if (!env.AZURE_OPENAI_DEPLOYMENT && !env.AZURE_OPENAI_ANALYSIS_DEPLOYMENT) {
+    errors.push("AZURE_OPENAI_DEPLOYMENT or AZURE_OPENAI_ANALYSIS_DEPLOYMENT is required when REDPEN_AI_PROVIDER=azure_openai.")
+  }
+
+  const apiVersion = env.AZURE_OPENAI_API_VERSION
+  if (!apiVersion) {
+    warnings.push("AZURE_OPENAI_API_VERSION is not set; Convex actions default to 2025-04-01-preview.")
+  }
+
+  const region = normalizeRegion(env.AZURE_OPENAI_REGION)
+  if (productionLike && !region) {
+    errors.push("AZURE_OPENAI_REGION is required for production or real-student Azure OpenAI use.")
+  } else if (region && !EU_AZURE_REGIONS.has(region)) {
+    errors.push("AZURE_OPENAI_REGION must be an EU Azure region for RedPen.")
+  }
+
+  const deploymentType = normalizeRegion(env.AZURE_OPENAI_DEPLOYMENT_TYPE)
+  if (productionLike && !deploymentType) {
+    errors.push("AZURE_OPENAI_DEPLOYMENT_TYPE is required for production or real-student Azure OpenAI use.")
+  } else if (deploymentType && !AZURE_DEPLOYMENT_TYPES.has(deploymentType)) {
+    errors.push("AZURE_OPENAI_DEPLOYMENT_TYPE must be Standard, DataZoneStandard, or ProvisionedManaged for RedPen.")
+  }
+
+  if (env.AZURE_OPENAI_CONTENT_LOGGING_DISABLED !== "true") {
+    errors.push("AZURE_OPENAI_CONTENT_LOGGING_DISABLED must be true when REDPEN_AI_PROVIDER=azure_openai.")
+  }
+}
+
+function normalizeRegion(value: string | undefined) {
+  return value?.toLowerCase().replace(/\s+/g, "").replace(/_/g, "-")
+}
+
 export function numberFromEnv(value: string | undefined) {
   if (!value) return null
   const parsed = Number(value)
@@ -98,4 +165,15 @@ export const syntheticSafeEnv: RuntimeConfigInput = {
   REAL_STUDENT_PILOT_MODE: "false",
   RAW_FILE_PROXY_ENABLED: "false",
   FRONTEND_RUNTIME_REGION: "eu-west-1"
+}
+
+export const syntheticAzureEnv: RuntimeConfigInput = {
+  ...syntheticSafeEnv,
+  REDPEN_AI_PROVIDER: "azure_openai",
+  AZURE_OPENAI_ENDPOINT: "https://redpen-synthetic.openai.azure.com",
+  AZURE_OPENAI_API_VERSION: "2025-04-01-preview",
+  AZURE_OPENAI_DEPLOYMENT: "gpt-5-5-eu",
+  AZURE_OPENAI_REGION: "sweden-central",
+  AZURE_OPENAI_DEPLOYMENT_TYPE: "datazone_standard",
+  AZURE_OPENAI_CONTENT_LOGGING_DISABLED: "true"
 }
